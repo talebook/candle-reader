@@ -84,6 +84,8 @@ export default {
                 if (rsp.err != "ok") {
                     this.alert.type = "error";
                     this.alert.msg = rsp.msg;
+                } else {
+                    this.$emit("login", rsp.data)
                 }
             });
         },
@@ -118,8 +120,9 @@ export default {
                 if (rsp.err != 'ok') {
                     this.failmsg = rsp.msg;
                 } else {
-                    this.$store.commit("navbar", true);
-                    this.$router.push("/");
+                    this.alert.type = "success";
+                    this.alert.msg = "重置成功！请查阅密码通知邮件。";
+                    this.mode = 'login';
                 }
             });
         }

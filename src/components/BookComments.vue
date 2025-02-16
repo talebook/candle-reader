@@ -21,7 +21,7 @@
           {{ c.content }}
           <v-list-item-subtitle>{{ c.level }}楼 * {{ c.createTime }} * {{ c.geo }}</v-list-item-subtitle>
           <template v-slot:prepend>
-            <v-avatar variant="outlined" class="text-center" :icon="c.avatar"></v-avatar>
+            <v-avatar variant="outlined" size=large color="grey" class="text-center" :icon="c.avatar"></v-avatar>
           </template>
           <template v-slot:append>
             <v-btn class="px-0" size=small variant=plain stacked prepend-icon="mdi-thumb-up">{{ c.likeCount }}</v-btn>

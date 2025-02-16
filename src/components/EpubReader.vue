@@ -5,7 +5,6 @@
       <template v-slot:prepend> <v-btn icon> <v-icon>mdi-arrow-left</v-icon> </v-btn> </template>
       {{ alert_msg }}
       <v-spacer></v-spacer>
-      <v-btn @click="is_login = !is_login" :icon="is_login ? 'mdi-account-check' : 'mdi-account-plus'"></v-btn>
       <v-btn icon> <v-icon>mdi-dots-vertical</v-icon> </v-btn>
     </v-app-bar>
 
@@ -39,17 +38,16 @@
       <settings :settings="settings" @update="update_settings"></settings>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" contained close-on-content-click
-      z-index="234">
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" contained close-on-content-click  z-index="234">
       <book-toc :meta="book_meta" :toc_items="toc_items" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
-    <v-bottom-sheet inset class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained persistent z-index="234">
-      <guest v-if="!is_login" :server="this.server"></guest>
-      <user v-else :messages="comments"></user>
+    <v-bottom-sheet inset class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained persistent  z-index="234">
+      <guest v-if="!user" :server="this.server" @login="on_login_user"></guest>
+      <user-center v-else :messages="comments" :user="user" @update="on_login_user"></user-center>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed" max-height="90%" v-model="menu.panels.comments" contained z-index="2600">
+    <v-bottom-sheet class="fixed" max-height="90%" v-model="menu.panels.comments" contained  z-index="2600">
       <book-comments :login="is_login" :comments="comments" @close="set_menu('hide')"
         @add_review="on_add_review"></book-comments>
     </v-bottom-sheet>
@@ -608,6 +606,9 @@ export default {
         // this.set_menu("comments");
       })
     },
+    on_login_user: function(user_data) {
+      this.user = user_data;
+    },
   },
   mounted: function () {
     const url = `/api/review/me?count=true`;
@@ -616,6 +617,12 @@ export default {
         this.is_login = false;
       } else if (rsp.err == "ok") {
         this.unread_count = rsp.data.count;
+      }
+    })
+
+    this.$backend(`/api/user/info`).then(rsp => {
+      if (rsp.err == "ok") {
+        this.user = rsp.data;
       }
     })
 
@@ -671,6 +678,8 @@ export default {
     wide_screen: 1000, // 宽屏尺寸
     comments_refresh_time: 10 * 60 * 100, // 10min
     app_theme: "light",
+
+    user: null,
     is_login: true,
     book_title: "",
     book_meta: null,
