@@ -43,7 +43,7 @@
     </v-bottom-sheet>
 
     <v-bottom-sheet inset class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained persistent  z-index="234">
-      <guest v-if="!user" :server="this.server" @login="on_login_user"></guest>
+      <guest v-if="!user" @login="on_login_user"></guest>
       <user-center v-else :messages="comments" :user="user" @update="on_login_user"></user-center>
     </v-bottom-sheet>
 
@@ -670,9 +670,8 @@ export default {
       theme_day: "white",
       theme_night: "grey",
     },
-    server: "http://localhost:8080",
 
-    book_url: "/guimi2/", display_url: 'Text/Chapter_0004.xhtml',
+    book_url: "/demo/book1/", display_url: 'index_split_002.html',
     // book_url: "/guimi/", display_url: "index_split_002.html#filepos160365",
 
     wide_screen: 1000, // 宽屏尺寸

@@ -17,8 +17,7 @@ const serverPlugin = {
             var args = {
                 mode: "cors", redirect: "follow", credentials: 'include',
             }
-            var server = window.location.origin;
-            server = "http://localhost:8080";
+            var server = window.location.origin.replace("3000", "8080");
 
             var full_url = server + url;
 
