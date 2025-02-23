@@ -37,6 +37,12 @@
             </template>
           </v-list-item>
 
+          <v-list-item class="text-right" @click="checkLogout = true" append-icon="mdi-chevron-right">
+            <template #prepend>
+              <span>退出登录</span>
+            </template>
+          </v-list-item>
+
         </v-list>
 
       </v-card>
@@ -105,7 +111,26 @@
         </v-card>
       </template>
     </v-dialog>
-  </v-card>
+
+
+    <!-- 修改昵称对话框 -->
+    <v-dialog v-model="checkLogout" persistent>
+      <template #default>
+        <v-card>
+          <v-card-title class="text-center">请确认</v-card-title>
+          <v-card-text>
+            是否要退出登录？
+          </v-card-text>
+          <v-card-actions>
+            <v-btn text @click="checkLogout = false">取消</v-btn>
+            <v-btn text @click="do_logout">确认</v-btn>
+          </v-card-actions>
+        </v-card>
+      </template>
+    </v-dialog>
+
+
+</v-card>
 </template>
 
 <script>
@@ -116,6 +141,7 @@ export default {
     editAvatar: false,
     editNickname: false,
     editPassword: false,
+    checkLogout: false,
 
     newNickname: '',
     oldPassword: '',
@@ -160,8 +186,8 @@ export default {
 
       }
       this.update_user({
-        passowrd0: this.oldPassword,
-        passowrd1: this.newPassword,
+        password0: this.oldPassword,
+        password1: this.newPassword,
       }).then(() => {
         this.editPassword = false;
       })
@@ -177,8 +203,18 @@ export default {
           this.alert.type = "error";
           return;
         }
-        alert("修改成功");
         this.$emit('update', rsp.data);
+      });
+    },
+    do_logout: function () {
+      this.user.nickName = this.newNickname;
+      return this.$backend(`/api/user/sign_out`).then((rsp) => {
+        if (rsp.err != 'ok') {
+          this.alert.msg = rsp.msg;
+          this.alert.type = "error";
+          return;
+        }
+        this.$emit('logout');
       });
     },
   },

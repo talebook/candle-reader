@@ -25,7 +25,7 @@
         <span>设置</span>
       </v-btn>
 
-      <v-btn @click="set_menu('more')">
+      <v-btn value="more" @click="set_menu('more')">
         <v-badge color="error" :content="unread_count" v-if="unread_count">
           <v-icon>mdi-account-circle-outline</v-icon>
         </v-badge>
@@ -42,9 +42,9 @@
       <book-toc :meta="book_meta" :toc_items="toc_items" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
-    <v-bottom-sheet inset class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained persistent  z-index="234">
+    <v-bottom-sheet inset class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
       <guest v-if="!user" @login="on_login_user"></guest>
-      <user-center v-else :messages="comments" :user="user" @update="on_login_user"></user-center>
+      <user-center v-else :messages="comments" :user="user" @update="on_login_user" @logout="user=null"></user-center>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed" max-height="90%" v-model="menu.panels.comments" contained  z-index="2600">
