@@ -179,12 +179,14 @@ export default {
       }
 
       // 按照功能区的点击处理
-      const N = width > this.wide_screen ? 5 : 3;
-      if ( x < width / N || y < height / N) {
+      // 顶部&底部翻页在宽屏模式下不生效
+      const is_mobile = width < this.wide_screen
+      const N = is_mobile ? 3 : 5;
+      if ( x < width / N || (is_mobile && y < height / N)) {
         // 点击左侧，往前翻页
         console.log("<- prev page")
         this.rendition.prev();
-      } else if (x > width * (N-1) / N || y > height * (N-1) / N) {
+      } else if (x > width * (N-1) / N || (is_mobile && y > height * (N-1) / N)) {
         // 点击右侧，往后翻页
         console.log("-> next page")
         this.rendition.next().then();
