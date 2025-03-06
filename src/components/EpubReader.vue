@@ -32,6 +32,12 @@
         <v-icon v-else>mdi-account-circle-outline</v-icon>
         <span>用户</span>
       </v-btn>
+
+      <v-btn value="ai" @click="set_menu('ai')">
+        <v-icon>mdi-face-man-shimmer</v-icon>
+        <span>AI</span>
+      </v-btn>
+
     </v-bottom-navigation>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.settings" contained persistent z-index="234">
@@ -42,14 +48,18 @@
       <book-toc :meta="book_meta" :toc_items="toc_items" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
-    <v-bottom-sheet inset class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
       <guest v-if="!user" @login="on_login_user"></guest>
       <user-center v-else :messages="comments" :user="user" @update="on_login_user" @logout="user=null"></user-center>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed" max-height="90%" v-model="menu.panels.comments" contained  z-index="2600">
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.comments" contained  z-index="234">
       <book-comments :login="is_login" :comments="comments" @close="set_menu('hide')"
         @add_review="on_add_review"></book-comments>
+    </v-bottom-sheet>
+
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.ai" contained z-index="234">
+      <v-card title="开发中"></v-card>
     </v-bottom-sheet>
 
     <!-- 浮动工具栏 -->
@@ -704,6 +714,7 @@ export default {
         more: false,
         settings: false,
         comments: false,
+        ai: false,
       }
     },
     theme_mode: "day",
