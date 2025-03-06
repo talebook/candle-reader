@@ -2,8 +2,10 @@
   <v-app :theme="app_theme" full-height density="compact">
     <!-- 顶部菜单 -->
     <v-app-bar v-if="menu.show_navbar" density="compact">
-      <template v-slot:prepend> <v-btn icon> <v-icon>mdi-arrow-left</v-icon> </v-btn> </template>
-      {{ alert_msg }}
+      <template v-slot:prepend>
+          <v-btn icon> <v-icon>{{ is_debug_signal ? 'mdi-arrow-left' : 'mdi-candle' }}</v-icon> </v-btn> 
+      </template>
+      {{ is_debug_signal ? alert_msg : book_title }}
       <v-spacer></v-spacer>
       <v-btn icon> <v-icon>mdi-dots-vertical</v-icon> </v-btn>
     </v-app-bar>
@@ -91,7 +93,7 @@ export default {
   name: 'EpubReader',
   components: {
   },
-  props: ['book_url', 'display_url'],
+  props: ['book_url', 'display_url', 'debug'],
   computed: {
     switch_theme_icon: function () {
       return this.settings.theme_mode == "day" ? "mdi-weather-night" : "mdi-weather-sunny";
@@ -627,6 +629,9 @@ export default {
     },
   },
   mounted: function () {
+    this.is_debug_signal = this.debug;
+    this.is_debug_click = this.debug;
+
     this.loading = true;
     const url = `/api/review/me?count=true`;
     this.$backend(url).then(rsp => {
@@ -700,7 +705,7 @@ export default {
     book_title: "",
     book_meta: null,
     book_id: 0,
-    alert_msg: "x",
+    alert_msg: "秉烛夜读",
     rendition: null,
     auto_close: false,
     menu: {

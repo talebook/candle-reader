@@ -10,10 +10,10 @@ import CandleReader from '@/CandleReader.vue'
 
 export class Reader {
 	constructor(elem, args) {
-        var dev_server = window.location.origin.replace("5001", "5002");
+        var default_server = 'https://api.talebook.org';
         const app = createApp(CandleReader, args)
         registerPlugins(app, {
-            server: args.server || dev_server,
+            server: args.server || default_server,
         })
         app.mount(elem)
     }
