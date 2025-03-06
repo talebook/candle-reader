@@ -91,6 +91,7 @@ export default {
   name: 'EpubReader',
   components: {
   },
+  props: ['book_url', 'display_url'],
   computed: {
     switch_theme_icon: function () {
       return this.settings.theme_mode == "day" ? "mdi-weather-night" : "mdi-weather-sunny";
@@ -689,9 +690,6 @@ export default {
       theme_day: "white",
       theme_night: "grey",
     },
-
-    book_url: "/demo/book1/", display_url: 'index_split_002.html#filepos160365',
-    // book_url: "/guimi/", display_url: "index_split_002.html#filepos160365",
 
     wide_screen: 1000, // 宽屏尺寸
     comments_refresh_time: 10 * 60 * 100, // 10min

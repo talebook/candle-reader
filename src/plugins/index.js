@@ -7,11 +7,9 @@
 // Plugins
 import vuetify from './vuetify'
 import serverPlugin from './server'
-import router from '@/router'
 
-export function registerPlugins (app) {
+export function registerPlugins (app, options) {
   app
   .use(vuetify)
-  .use(serverPlugin)
-  .use(router)
+  .use(serverPlugin, options)
 }

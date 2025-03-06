@@ -11,17 +11,28 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  build: {
+    lib: {
+      entry: 'src/main.js', // 入口文件，根据实际情况修改
+      name: 'CandleReader', // 库的名称
+      fileName: (format) => `candle-reader.${format}.js`, // 输出文件名
+    },
+    rollupOptions: {
+      external: (id) => {
+        return /^\/public\/demo\//.test(id);
+      },
+      output: {
+        // 确保所有依赖都被打包到一个文件中
+        inlineDynamicImports: true, 
+      },
+    },  },
   plugins: [
-    VueRouter(),
     Vue({
       template: { transformAssetUrls }
     }),
     // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
     Vuetify({
       autoImport: true,
-      styles: {
-        configFile: 'src/styles/settings.scss',
-      },
     }),
     Components(),
     ViteFonts({

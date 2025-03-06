@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" href="/favicon.ico" />
@@ -9,11 +8,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>秉烛夜读</title>
   <script src="/js/epub-v0.3.88.js"></script>
+  <script  type="module">
+    import { Reader } from "/src/main.js"
+    new Reader('#app', {
+      book_url: '/demo/book1/', display_url: 'index_split_002.html#filepos160365',
+      // book_url: "/guimi/", display_url: "index_split_002.html#filepos160365",
+    })
+  </script>
 </head>
-
 <body>
   <div id="app"></div>
-  <script type="module" src="/src/main.js"></script>
 </body>
-
 </html>

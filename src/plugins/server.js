@@ -1,5 +1,8 @@
 const serverPlugin = {
-    install: (app) => {
+    install: (app, options) => {
+
+        const server = options.server;
+
         app.config.globalProperties.$alert = function (alert_type, alert_msg, alert_to) {
             app.$store.commit("alert", { type: alert_type, msg: alert_msg, to: alert_to });
             if (alert_type === 'success') {
@@ -17,7 +20,6 @@ const serverPlugin = {
             var args = {
                 mode: "cors", redirect: "follow", credentials: 'include',
             }
-            var server = window.location.origin.replace("5001", "5002");
 
             var full_url = server + url;
 

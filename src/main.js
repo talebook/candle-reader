@@ -4,18 +4,17 @@
  * Bootstraps Vuetify and other plugins then mounts the App`
  */
 
-// Plugins
-import { registerPlugins } from '@/plugins'
-
-// Components
-import App from './App.vue'
-
-// Composables
 import { createApp } from 'vue'
+import { registerPlugins } from '@/plugins'
+import CandleReader from '@/CandleReader.vue'
 
-
-const app = createApp(App)
-
-registerPlugins(app)
-
-app.mount('#app')
+export class Reader {
+	constructor(elem, args) {
+        var dev_server = window.location.origin.replace("5001", "5002");
+        const app = createApp(CandleReader, args)
+        registerPlugins(app, {
+            server: args.server || dev_server,
+        })
+        app.mount(elem)
+    }
+}
