@@ -4,7 +4,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>亮度</span>
+                    <span>亮度*</span>
                 </v-col>
                 <v-col cols="9">
                     <v-slider hide-details v-model="opt.brightness" max="100" min="1" step=1
@@ -16,7 +16,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span class="text-justify">字体</span>
+                    <span class="text-justify">字体*</span>
                 </v-col>
                 <v-col cols="3" height="48">
                     <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("font_size", opt.font_size - 2)'>A-</v-btn>
@@ -48,7 +48,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>动画</span>
+                    <span>动画*</span>
                 </v-col>
                 <v-col cols="10">
                     <v-btn-group variant="outlined" divided density="compact">
@@ -64,7 +64,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>背景</span>
+                    <span>背景*</span>
                 </v-col>
                 <v-col cols="10">
                     <v-btn-group variant="outlined" divided density="compact">
@@ -79,7 +79,7 @@
         <v-list-item class="my-2">
             <v-row style="margin-bottom: 1px">
                 <v-col cols="2">
-                    <span density="compact">章评</span>
+                    <span density="compact">章评*</span>
                 </v-col>
                 <v-col cols="10">
                     <v-btn-group variant="outlined" divided density="compact">
@@ -102,6 +102,11 @@
             </v-row>
         </v-list-item>
 
+        <v-divider></v-divider>
+        <v-list-item class="my-2" title="带 * 号功能都在开发中"> 
+        </v-list-item>
+
+
 </v-list>
 </template>
 
@@ -117,6 +122,7 @@ export default {
             theme_mode: this.settings.theme_mode,
             font_size: this.settings.font_size,
             brightness: this.settings.brightness,
+            show_comments: this.settings.show_comments,
         }
     },
     methods: {

@@ -694,6 +694,7 @@ export default {
       theme_mode: "day",
       theme_day: "white",
       theme_night: "grey",
+      show_comments: true,
     },
 
     wide_screen: 1000, // 宽屏尺寸
