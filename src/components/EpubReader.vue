@@ -1,5 +1,5 @@
 <template>
-  <v-app :theme="app_theme" full-height density="compact">
+  <v-app :theme="settings.app_theme" full-height density="compact">
     <!-- 顶部菜单 -->
     <v-app-bar v-if="menu.show_navbar" density="compact">
       <template v-slot:prepend>
@@ -106,14 +106,16 @@ export default {
     switch_theme: function () {
       const current_mode = this.settings.theme_mode;
       if (current_mode == "day") {
-        this.app_theme = "dark"
+        this.settings.app_theme = "dark"
         this.settings.theme_mode = "night";
-        this.rendition.themes.select(this.settings.theme_night);
+        this.settings.theme = this.settings.theme_night;
       } else {
-        this.app_theme = "light"
+        this.settings.app_theme = "light"
         this.settings.theme_mode = "day";
-        this.rendition.themes.select(this.settings.theme_day);
+        this.settings.theme = this.settings.theme_day;
       }
+      this.rendition.themes.select(this.settings.theme);
+      this.save_settings();
     },
     set_menu: function (target_menu_panel) {
       var target = target_menu_panel;
@@ -131,6 +133,10 @@ export default {
         this.menu.panels[k] = (k == target);
       }
     },
+    save_settings: function() {
+      // 保存设置到localStorage
+      localStorage.setItem('readerSettings', JSON.stringify(this.settings));
+    },
     update_settings: function (opt) {
       if (opt.flow != this.settings.flow) {
         // FIXME 切换后，翻页到下一章时css会丢失
@@ -145,7 +151,8 @@ export default {
       const theme_key = "theme_" + mode;
       this.settings[theme_key] = this.settings.theme;
       this.rendition.themes.select(this.settings.theme);
-      this.app_theme = (mode == "day") ? "light" : "dark";
+      this.settings.app_theme = (mode == "day") ? "light" : "dark";
+      this.save_settings();
     },
     on_click_toc: function (item) {
       console.log(item);
@@ -451,7 +458,7 @@ export default {
       this.rendition.themes.register("grey", "themes.css");
       this.rendition.themes.register("brown", "themes.css");
       this.rendition.themes.register("eyecare", "themes.css");
-      this.rendition.themes.select(this.settings.theme_day);
+      this.rendition.themes.select(this.settings.theme);
     },
     on_add_review: function (content) {
       const loc = this.comments_location
@@ -629,6 +636,12 @@ export default {
     },
   },
   mounted: function () {
+    // 从localStorage加载设置
+    const savedSettings = localStorage.getItem('readerSettings');
+    if (savedSettings) {
+      this.settings = JSON.parse(savedSettings);
+      console.log("加载设置：", savedSettings);
+    }
     this.is_debug_signal = this.debug;
     this.is_debug_click = this.debug;
 
@@ -695,11 +708,11 @@ export default {
       theme_day: "white",
       theme_night: "grey",
       show_comments: true,
+      app_theme: "light",
     },
 
     wide_screen: 1000, // 宽屏尺寸
     comments_refresh_time: 10 * 60 * 100, // 10min
-    app_theme: "light",
 
     user: null,
     is_login: true,

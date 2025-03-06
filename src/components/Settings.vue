@@ -52,9 +52,9 @@
                 </v-col>
                 <v-col cols="10">
                     <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn active>无动画</v-btn>
-                        <v-btn @click="alert('开发中，敬请期待')">平移</v-btn>
-                        <v-btn @click="alert('开发中，敬请期待')">仿真</v-btn>
+                        <v-btn :active="opt.animation == 'none'">无动画</v-btn>
+                        <v-btn :active="opt.animation == 'swap'">平移</v-btn>
+                        <v-btn :active="opt.animation == 'paper'">仿真</v-btn>
                     </v-btn-group>
                 </v-col>
             </v-row>
@@ -68,9 +68,9 @@
                 </v-col>
                 <v-col cols="10">
                     <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn active>主题图0</v-btn>
-                        <v-btn @click="alert('开发中，敬请期待')">主题图1</v-btn>
-                        <v-btn @click="alert('开发中，敬请期待')">主题图2</v-btn>
+                        <v-btn :active="opt.background == 'p0'">主题图0</v-btn>
+                        <v-btn :active="opt.background == 'p1'">主题图1</v-btn>
+                        <v-btn :active="opt.background == 'p2'">主题图2</v-btn>
                     </v-btn-group>
                 </v-col>
             </v-row>
