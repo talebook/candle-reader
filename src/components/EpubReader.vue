@@ -321,7 +321,7 @@ export default {
     show_toolbar: function (rect, iframe_rect) {
       console.log("show toolbar at rect", rect, " from iframe rect", iframe_rect)
       const toolbar = document.getElementById('comments-toolbar');
-      this.toolbar_left = (rect.width - toolbar.offsetWidth) / 2;
+      this.toolbar_left = rect.left + iframe_rect.x;
 
       const top = rect.top + iframe_rect.y;
       const bottom = rect.bottom + iframe_rect.y;
