@@ -67,7 +67,10 @@
 
     <!-- 阅读界面 -->
     <v-main id='main' class="pa-0">
-        <div id="reader"></div>
+      <v-overlay v-model="loading" z-index="auto" class="align-center justify-center"persistent>
+        <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
+      </v-overlay>
+      <div id="reader"></div>
     </v-main>
 
   </v-app>
@@ -613,6 +616,7 @@ export default {
     },
   },
   mounted: function () {
+    this.loading = true;
     const url = `/api/review/me?count=true`;
     this.$backend(url).then(rsp => {
       if (rsp.err == "user.need_login") {
@@ -656,11 +660,14 @@ export default {
     this.init_themes();
 
     this.book.ready.then(() => {
-      this.rendition.display(this.display_url)
+      this.rendition.display(this.display_url).then(() => {
+        this.loading = false;
+      })
     })
 
   },
   data: () => ({
+    loading: true,
     book: null,
     settings: {
       flow: "paginated",
@@ -673,7 +680,7 @@ export default {
       theme_night: "grey",
     },
 
-    book_url: "/demo/book1/", display_url: 'index_split_002.html',
+    book_url: "/demo/book1/", display_url: 'index_split_002.html#filepos160365',
     // book_url: "/guimi/", display_url: "index_split_002.html#filepos160365",
 
     wide_screen: 1000, // 宽屏尺寸
