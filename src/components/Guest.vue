@@ -121,7 +121,7 @@ export default {
                     this.failmsg = rsp.msg;
                 } else {
                     this.alert.type = "success";
-                    this.alert.msg = "重置成功！请查阅密码通知邮件。";
+                    this.alert.msg = "注册成功！请查阅密码通知邮件。";
                     this.mode = 'login';
                 }
             });
