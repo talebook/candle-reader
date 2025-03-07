@@ -690,8 +690,12 @@ export default {
     this.init_themes();
 
     this.book.ready.then(() => {
-      this.rendition.display(this.display_url).then(() => {
+      const savedPosition = localStorage.getItem('lastReadPosition');
+      this.rendition.display(savedPosition || this.display_url).then(() => {
         this.loading = false;
+        this.rendition.on('relocated', (location) => {
+          localStorage.setItem('lastReadPosition', location.start.cfi);
+        });
       })
     })
 
