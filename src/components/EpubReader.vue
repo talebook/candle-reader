@@ -79,9 +79,17 @@
 
     <!-- 阅读界面 -->
     <v-main id='main' class="pa-0">
-      <v-overlay v-model="loading" z-index="auto" class="align-center justify-center"persistent>
+      <v-overlay v-model="loading" z-index="auto" class="align-center justify-center" persistent>
         <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
       </v-overlay>
+      <div id="status-bar" :class="settings.theme">
+        <div id="status-bar-left" class="align-start">
+          {{ current_toc_title }}
+        </div>
+        <div id="status-bar-right" class="align-end">
+          {{ current_toc_progress }}
+        </div>
+      </div>
       <div id="reader"></div>
     </v-main>
 
@@ -499,11 +507,14 @@ export default {
 
         const target_cfi = new ePub.CFI(cfi)
         const toc = this.find_toc(target_cfi, contents, spine.href);
-
+        
         this.load_comments_summary(contents, toc);
       })
     },
     on_location_changed: function (loc) {
+      var w = this.rendition.currentLocation();
+      this.current_toc_progress = ""; // w.end.percentage + '%';
+
       const start = new ePub.CFI(loc.start);
       const end = new ePub.CFI(loc.end)
       const contents_list = this.rendition.getContents();
@@ -513,12 +524,13 @@ export default {
         const found = contents_list.filter(c => { return c.cfiBase == spine.cfiBase })
         if (found === undefined) {
           continue
-          debugger
         }
         const contents = found[0];
         const elem = contents.document.getElementsByTagName("p")[0];
         const target_cfi = new ePub.CFI(elem, spine.cfiBase)
         const toc = this.find_toc(target_cfi, contents, spine.href);
+
+        this.current_toc_title = toc ? toc.label : '';
         this.load_comments_summary(contents, toc);
       }
     },
@@ -637,6 +649,12 @@ export default {
     },
   },
   mounted: function () {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = this.themes_css;
+    document.head.appendChild(link);
+
     // 从localStorage加载设置
     const savedSettings = localStorage.getItem('readerSettings');
     if (savedSettings) {
@@ -745,6 +763,9 @@ export default {
     comments_location: {}, // 评论内容的位置
     selected_location: {}, // 选中内容的位置
 
+    current_toc_title: "",
+    current_toc_progress: "",
+
     toolbar_left: -999,
     toolbar_top: 0,
 
@@ -775,10 +796,31 @@ export default {
   z-index: 999;
 }
 
-#main, #reader {
+#main {
   height: 100%;
   width: 100%;
   position: absolute;
+}
+
+#reader {
+  top: 24px;
+  height: calc(100% - 24px);
+  width: 100%;
+  position: absolute;
+}
+
+#status-bar {
+  height: 24px;
+  width: 100%;
+  padding: 0 8px;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  font-size: 12px;
+  position: absolute;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .fixed {
