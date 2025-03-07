@@ -93,7 +93,7 @@ export default {
   name: 'EpubReader',
   components: {
   },
-  props: ['book_url', 'display_url', 'debug'],
+  props: ['book_url', 'display_url', 'debug', 'themes_css'],
   computed: {
     switch_theme_icon: function () {
       return this.settings.theme_mode == "day" ? "mdi-weather-night" : "mdi-weather-sunny";
@@ -453,11 +453,12 @@ export default {
     },
 
     init_themes: function () {
-      this.rendition.themes.register("white", "themes.css");
-      this.rendition.themes.register("dark", "themes.css");
-      this.rendition.themes.register("grey", "themes.css");
-      this.rendition.themes.register("brown", "themes.css");
-      this.rendition.themes.register("eyecare", "themes.css");
+      console.log("load themes from:", this.themes_css)
+      this.rendition.themes.register("white", this.themes_css);
+      this.rendition.themes.register("dark", this.themes_css);
+      this.rendition.themes.register("grey", this.themes_css);
+      this.rendition.themes.register("brown", this.themes_css);
+      this.rendition.themes.register("eyecare", this.themes_css);
       this.rendition.themes.select(this.settings.theme);
     },
     on_add_review: function (content) {

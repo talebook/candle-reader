@@ -9,7 +9,7 @@ import { registerPlugins } from '@/plugins'
 import CandleReader from '@/CandleReader.vue'
 
 export class Reader {
-	constructor(elem, args) {
+    constructor(elem, args) {
         var default_server = 'https://api.talebook.org';
         const app = createApp(CandleReader, args)
         registerPlugins(app, {
