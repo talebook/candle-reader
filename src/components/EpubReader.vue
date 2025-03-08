@@ -646,6 +646,7 @@ export default {
     },
     on_login_user: function(user_data) {
       this.user = user_data;
+      this.is_login = true;
     },
   },
   mounted: function () {
