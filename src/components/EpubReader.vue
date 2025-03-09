@@ -333,20 +333,33 @@ export default {
       }
 
       // 初始化计数器
-      let count = 0;
+      let segment_id = 0;
 
       // 从 startElement 开始遍历到 endElement
       let currentNode = start_elem; // 获取 startElement 之后的第一个兄弟节点
 
-      // 遍历节点直到 endElement
-      while (currentNode && currentNode !== end) {
-        if (currentNode.nodeName.toUpperCase() === "P") {
-          count++; // 如果当前节点是 <p>，则计数
-        }
-        currentNode = currentNode.nextSibling; // 移动到下一个兄弟节点
+      // 从起始节点开始遍历到结束节点
+      while (currentNode && currentNode!== end) {
+        const node_name = currentNode.nodeName.toUpperCase();
+          if (node_name === "P" || node_name[0] === "H") {
+            segment_id ++;
+          }
+          // 如果当前节点有子节点，则进入子节点
+          if (currentNode.firstChild) {
+              currentNode = currentNode.firstChild;
+          // 否则尝试下一个兄弟节点
+          } else if (currentNode.nextSibling) {
+              currentNode = currentNode.nextSibling;
+          // 如果没有子节点和兄弟节点，则回溯到父节点的下一个兄弟节点
+          } else {
+              while (!currentNode.nextSibling && currentNode.parentNode) {
+                  currentNode = currentNode.parentNode;
+              }
+              currentNode = currentNode.nextSibling;
+          }
       }
 
-      return count;
+      return segment_id;
     },
     hide_toolbar: function () {
       this.toolbar_left = -999;
@@ -379,7 +392,7 @@ export default {
       while (p.nodeName.toUpperCase() != "P" && p.nodeName.toUpperCase()[0] != "H") {
         p = p.parentElement;
       }
-      console.log("elem =", p);
+      console.log("selected elem =", p);
 
       // 遍历toc，查找最近的章节名称
       // 然后基于章节名的位置，计算选中段落是第几个，作为ID
@@ -388,9 +401,9 @@ export default {
       console.log("cfi = ", cfi, "toc =", toc);
 
       // 基于cfi的数字快速计算
-      const segment_id = cfi.path.steps[1].index - toc.cfi.path.steps[1].index;
-      // const segment_id = this.count_distinct_between(toc.elem, p);
-      console.log("segment_id = ", segment_id);
+      // const segment_id = cfi.path.steps[1].index - toc.cfi.path.steps[1].index;
+      const segment_id = this.count_distinct_between(toc.elem, p);
+      console.log("selected segment_id = ", segment_id);
 
       this.selected_location = {
         toc: toc,
@@ -579,16 +592,30 @@ export default {
         }
       }
 
-      // 逐个遍历
+      // 深度优先遍历
       var segment_id = 0;
       var currentNode = toc.elem;
+
+      // 从起始节点开始遍历到结束节点
       while (segment_id <= max_segment_id && currentNode) {
         const node_name = currentNode.nodeName.toUpperCase();
-        if (node_name === "P" || node_name[0] === "H") {
-          this.add_icon_into_paragraph(contents, currentNode, segment_id, toc)
-          segment_id++; // 移动到下一个节点，确保只add一次
-        }
-        currentNode = currentNode.nextSibling; // 移动到下一个兄弟节点
+          if (node_name === "P" || node_name[0] === "H") {
+            this.add_icon_into_paragraph(contents, currentNode, segment_id, toc)
+            segment_id ++;
+          }
+          // 如果当前节点有子节点，则进入子节点
+          if (currentNode.firstChild) {
+              currentNode = currentNode.firstChild;
+          // 否则尝试下一个兄弟节点
+          } else if (currentNode.nextSibling) {
+              currentNode = currentNode.nextSibling;
+          // 如果没有子节点和兄弟节点，则回溯到父节点的下一个兄弟节点
+          } else {
+              while (!currentNode.nextSibling && currentNode.parentNode) {
+                  currentNode = currentNode.parentNode;
+              }
+              currentNode = currentNode.nextSibling;
+          }
       }
     },
 
@@ -597,6 +624,7 @@ export default {
       if (state === undefined) {
         return;
       }
+      console.log("添加评论图标：", segment_id, elem, state)
 
       // const contents = this.rendition.getContents()[0];
       const cfi = new ePub.CFI(elem, contents.cfiBase).toString();
@@ -707,14 +735,14 @@ export default {
 
     this.init_listeners();
     this.init_themes();
+    this.rendition.on('relocated', (location) => {
+      localStorage.setItem('lastReadPosition', location.start.cfi);
+    });
 
     this.book.ready.then(() => {
       const savedPosition = localStorage.getItem('lastReadPosition');
       this.rendition.display(savedPosition || this.display_url).then(() => {
         this.loading = false;
-        this.rendition.on('relocated', (location) => {
-          localStorage.setItem('lastReadPosition', location.start.cfi);
-        });
       })
     })
 
