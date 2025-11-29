@@ -117,23 +117,29 @@ export default {
     },
     mounted: function () {
         this.opt = {
-            flow: this.settings.flow,
-            theme: this.settings.flow,
-            theme_mode: this.settings.theme_mode,
-            font_size: this.settings.font_size,
-            brightness: this.settings.brightness,
-            show_comments: this.settings.show_comments,
-        }
+            flow: this.settings?.flow || this.opt.flow,
+            theme: this.settings?.theme || this.opt.theme,
+            theme_mode: this.settings?.theme_mode || this.opt.theme_mode,
+            font_size: this.settings?.font_size || this.opt.font_size,
+            brightness: this.settings?.brightness || this.opt.brightness,
+            show_comments: this.settings?.show_comments ?? this.opt.show_comments
+        };
     },
     methods: {
         set_and_emit: function(key, val) {
-            this.opt[key] = val;
-            this.$emit("update", this.opt);
+            this.opt = {
+                ...this.opt,
+                [key]: val
+            };
+            this.$emit("update", { ...this.opt });
         },
         set_theme_and_emit: function(name, mode) {
-            this.opt.theme = name;
-            this.opt.theme_mode = mode;
-            this.$emit("update", this.opt);
+            this.opt = {
+                ...this.opt,
+                theme: name,
+                theme_mode: mode
+            };
+            this.$emit("update", { ...this.opt });
         }
     },
     props: ['settings'],
