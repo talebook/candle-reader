@@ -27,6 +27,9 @@
                 <v-col cols="3">
                     <v-btn variant="outlined" density="comfortable" @click='set_and_emit("font_size", opt.font_size + 2)'>A+</v-btn>
                 </v-col>
+                <v-col cols="2">
+                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("font_size", 18)'>默认</v-btn>
+                </v-col>
             </v-row>
         </v-list-item>
 
