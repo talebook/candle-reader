@@ -100,7 +100,7 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
-      <div id="status-bar" :class="settings.theme">
+      <div id="status-bar-top" :class="settings.theme">
         <div id="status-bar-left" class="align-start">
           {{ current_toc_title }}
         </div>
@@ -109,15 +109,31 @@
         </div>
       </div>
       <div id="reader"></div>
+      <div id="status-bar-bottom" :class="settings.theme">
+        <div class="progress-bar-container">
+          <div class="progress-bar" :style="{ width: current_toc_progress }"></div>
+        </div>
+      </div>
     </v-main>
 
   </v-app>
 </template>
 
 <script>
+import Settings from './Settings.vue'
+import BookToc from './BookToc.vue'
+import Guest from './Guest.vue'
+import UserCenter from './UserCenter.vue'
+import BookComments from './BookComments.vue'
+
 export default {
   name: 'EpubReader',
   components: {
+    Settings,
+    BookToc,
+    Guest,
+    UserCenter,
+    BookComments
   },
   props: ['book_url', 'display_url', 'debug', 'themes_css'],
   computed: {
@@ -178,6 +194,18 @@ export default {
       this.settings[theme_key] = this.settings.theme;
       this.rendition.themes.select(this.settings.theme);
       this.settings.app_theme = (mode == "day") ? "light" : "dark";
+      
+      // 应用亮度设置
+      if (opt.brightness !== undefined) {
+        const brightness = opt.brightness / 100;
+        document.getElementById('reader').style.filter = `brightness(${brightness})`;
+      }
+      
+      // 应用字体大小设置
+      if (opt.font_size !== undefined) {
+        this.rendition.themes.fontSize(opt.font_size + 'px');
+      }
+      
       this.save_settings();
     },
     on_click_toc: function (item) {
@@ -544,7 +572,8 @@ export default {
     },
     on_location_changed: function (loc) {
       var w = this.rendition.currentLocation();
-      this.current_toc_progress = ""; // w.end.percentage + '%';
+      // 显示阅读进度百分比
+      this.current_toc_progress = w.end.percentage + '%';
 
       // 只处理当前显示的章节，减少API请求
       const start = new ePub.CFI(loc.start);
@@ -604,6 +633,11 @@ export default {
     },
     add_comment_icons: function (contents, toc) {
       console.log("添加评论图标和计数器：", toc.label.trim())
+      
+      // 如果章评功能关闭，不添加图标
+      if (!this.settings.show_comments) {
+        return;
+      }
 
       // 确定 segment_id 的最大值
       var max_segment_id = 0;
@@ -638,6 +672,9 @@ export default {
               currentNode = currentNode.nextSibling;
           }
       }
+      
+      // 标记已渲染图标
+      toc.icons_rendered = true;
     },
 
     add_icon_into_paragraph: function (contents, elem, segment_id, toc) {
@@ -647,23 +684,32 @@ export default {
       }
       console.log("添加评论图标：", segment_id, elem, state)
 
-      // const contents = this.rendition.getContents()[0];
+      // 检查是否已经添加了评论图标，避免重复添加
+      if (elem.querySelector('.comment-icon')) {
+        return;
+      }
+
       const cfi = new ePub.CFI(elem, contents.cfiBase).toString();
       const count = state.reviewNum;
       const is_hot = state.is_hot ? "hot-comment" : "";
 
-      // 创建评论计数器
+      // 创建评论容器
       const doc = contents.document;
-      const commentCount = doc.createElement("span");
-      commentCount.textContent = count > 0 ? count : "";
-      commentCount.className = `comment-count ${is_hot}`;
-
-      // 创建评论图标
       const commentContainer = doc.createElement("div");
       commentContainer.className = `comment-icon ${is_hot}`;
+      commentContainer.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        ${count > 0 ? `<span class="comment-count">${count}</span>` : ''}
+      `;
+
+      // 为段落添加相对定位，确保评论图标可以绝对定位
+      if (elem.style.position === '' || elem.style.position === 'static') {
+        elem.style.position = 'relative';
+      }
 
       // 将评论组件添加到段落末尾
-      commentContainer.appendChild(commentCount);
       elem.appendChild(commentContainer);
 
       commentContainer.addEventListener('click', (event) => {
@@ -834,6 +880,11 @@ export default {
     .then(() => {
       clearTimeout(this.loadingTimeout);
       this.loading = false;
+      
+      // 初始化亮度和字体大小设置
+      const brightness = this.settings.brightness / 100;
+      document.getElementById('reader').style.filter = `brightness(${brightness})`;
+      this.rendition.themes.fontSize(this.settings.font_size + 'px');
     })
     .catch(error => {
       clearTimeout(this.loadingTimeout);
@@ -930,12 +981,12 @@ export default {
 
 #reader {
   top: 24px;
-  height: calc(100% - 24px);
+  height: calc(100% - 54px); /* 24px top bar + 30px bottom bar */
   width: 100%;
   position: absolute;
 }
 
-#status-bar {
+#status-bar-top {
   height: 24px;
   width: 100%;
   padding: 0 8px;
@@ -947,6 +998,34 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+#status-bar-bottom {
+  height: 30px;
+  width: 100%;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--primary-color, #1976d2);
+  transition: width 0.3s ease;
+  border-radius: 2px;
 }
 
 .fixed {
