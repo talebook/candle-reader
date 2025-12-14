@@ -350,7 +350,6 @@ export default {
       console.log("got spine href in toc:", toc)
       if (toc === undefined) {
         return;
-        debugger
       }
 
       // 填充 cfi 定位信息
@@ -579,9 +578,19 @@ export default {
       })
     },
     on_location_changed: function (loc) {
-      var w = this.rendition.currentLocation();
-      // 显示阅读进度百分比
-      this.current_toc_progress = w.end.percentage + '%';
+      // 使用epub.js的currentLocation()获取当前位置信息
+      const location = this.rendition.currentLocation();
+      
+      // 确保location和location.end存在，然后计算进度
+      if (location && location.end && location.end.percentage !== undefined) {
+        this.current_toc_progress = Math.round(location.end.percentage * 100) / 100 + '%';
+      } else {
+        // 备选方案：使用spine位置计算进度
+        const spineIndex = location.start.spinePos;
+        const totalSpines = this.book.spine.length;
+        const progress = totalSpines > 0 ? Math.round((spineIndex / totalSpines) * 10000) / 100 : 0;
+        this.current_toc_progress = progress + '%';
+      }
 
       // 只处理当前显示的章节，减少API请求
       const start = new ePub.CFI(loc.start);
@@ -593,7 +602,7 @@ export default {
         const elem = contents.document.getElementsByTagName("p")[0];
         if (elem) {
           const target_cfi = new ePub.CFI(elem, spine.cfiBase)
-          const toc = this.find_toc(target_cfi, contents, spine.href);
+          const toc = this.find_toc(target_cfi, contents);
           
           if (toc) {
             // 只有章节变化时才更新标题和加载评论
