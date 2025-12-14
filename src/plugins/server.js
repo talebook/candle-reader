@@ -19,6 +19,7 @@ const serverPlugin = {
             }
             var args = {
                 mode: "cors", redirect: "follow", credentials: 'include',
+                timeout: 10000, // 添加超时设置
             }
 
             var full_url = server + url;
@@ -26,8 +27,17 @@ const serverPlugin = {
             if (options !== undefined) {
                 Object.assign(args, options);
             }
-            return fetch(full_url, args)
+            
+            // 添加请求超时处理
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), args.timeout || 10000);
+            
+            return fetch(full_url, {
+                ...args,
+                signal: controller.signal
+            })
                 .then(rsp => {
+                    clearTimeout(timeoutId);
                     var msg = "";
                     if (rsp.status === 413) {
                         msg = "服务器响应了413异常状态码。<br/>可能是上传的文件过大，超过了服务器设置的上传大小。";
@@ -60,6 +70,22 @@ const serverPlugin = {
                         app.$store.commit("alert", { type: "error", msg: rsp.msg, to: null });
                     }
                     return rsp;
+                })
+                .catch(err => {
+                    clearTimeout(timeoutId);
+                    var msg = "";
+                    if (err.name === 'AbortError') {
+                        msg = "请求超时，请检查网络连接或服务器状态";
+                    } else if (!navigator.onLine) {
+                        msg = "网络连接已断开，请检查网络设置";
+                    } else {
+                        msg = "请求失败: " + (err.message || "未知错误");
+                    }
+                    console.error('API请求失败:', err);
+                    // 不显示错误提示，避免影响用户体验
+                    // app.$alert("error", msg);
+                    // 返回默认值，让应用能够继续运行
+                    return { err: "network_error", msg: msg, data: {} };
                 })
         };
     },

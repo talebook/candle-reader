@@ -82,6 +82,24 @@
       <v-overlay v-model="loading" z-index="auto" class="align-center justify-center" persistent>
         <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
       </v-overlay>
+
+      <!-- 加载超时提示框 -->
+      <v-dialog v-model="showTimeoutDialog" max-width="500px">
+        <v-card>
+          <v-card-title class="text-h5 text-center">加载超时</v-card-title>
+          <v-card-text class="text-center">
+            电子书加载超时，可能是网络问题或文件格式不支持。
+          </v-card-text>
+          <v-card-actions class="justify-center">
+            <v-btn color="primary" variant="text" @click="showTimeoutDialog = false">
+              关闭
+            </v-btn>
+            <v-btn color="primary" variant="flat" @click="retryLoad">
+              重试
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
       <div id="status-bar" :class="settings.theme">
         <div id="status-bar-left" class="align-start">
           {{ current_toc_title }}
@@ -528,23 +546,26 @@ export default {
       var w = this.rendition.currentLocation();
       this.current_toc_progress = ""; // w.end.percentage + '%';
 
+      // 只处理当前显示的章节，减少API请求
       const start = new ePub.CFI(loc.start);
-      const end = new ePub.CFI(loc.end)
       const contents_list = this.rendition.getContents();
-
-      for (var idx = start.spinePos; idx <= end.spinePos; idx++) {
-        const spine = this.book.spine.get(idx);
-        const found = contents_list.filter(c => { return c.cfiBase == spine.cfiBase })
-        if (found === undefined) {
-          continue
-        }
+      const spine = this.book.spine.get(start.spinePos);
+      const found = contents_list.filter(c => { return c.cfiBase == spine.cfiBase })
+      if (found && found.length > 0) {
         const contents = found[0];
         const elem = contents.document.getElementsByTagName("p")[0];
-        const target_cfi = new ePub.CFI(elem, spine.cfiBase)
-        const toc = this.find_toc(target_cfi, contents, spine.href);
-
-        this.current_toc_title = toc ? toc.label : '';
-        this.load_comments_summary(contents, toc);
+        if (elem) {
+          const target_cfi = new ePub.CFI(elem, spine.cfiBase)
+          const toc = this.find_toc(target_cfi, contents, spine.href);
+          
+          if (toc) {
+            // 只有章节变化时才更新标题和加载评论
+            if (this.current_toc_title !== toc.label) {
+              this.current_toc_title = toc.label;
+              this.load_comments_summary(contents, toc);
+            }
+          }
+        }
       }
     },
     load_comments_summary: function (contents, toc) {
@@ -676,6 +697,47 @@ export default {
       this.user = user_data;
       this.is_login = true;
     },
+    retryLoad: function() {
+      // 重置状态并重新加载电子书
+      this.showTimeoutDialog = false;
+      this.loading = true;
+      
+      // 重新初始化并加载电子书
+      this.book = ePub(this.book_url);
+      this.rendition = this.book.renderTo("reader", {
+        manager: "continuous",
+        flow: this.settings.flow,
+        width: "100%",
+        height: "100%",
+      });
+      
+      this.init_listeners();
+      this.init_themes();
+      
+      this.book.ready.then(() => {
+        const savedPosition = localStorage.getItem('lastReadPosition');
+        return this.rendition.display(savedPosition || this.display_url);
+      })
+      .then(() => {
+        clearTimeout(this.loadingTimeout);
+        this.loading = false;
+      })
+      .catch(error => {
+        clearTimeout(this.loadingTimeout);
+        console.error('加载电子书失败:', error);
+        this.loading = false;
+        this.showTimeoutDialog = true;
+      })
+      
+      // 重新设置超时定时器
+      this.loadingTimeout = setTimeout(() => {
+        if (this.loading) {
+          console.warn('电子书加载超时，显示提示框');
+          this.loading = false;
+          this.showTimeoutDialog = true;
+        }
+      }, 10000);
+    },
   },
   mounted: function () {
     const link = document.createElement('link');
@@ -692,6 +754,15 @@ export default {
     }
     this.is_debug_signal = this.debug;
     this.is_debug_click = this.debug;
+    
+    // 添加加载超时机制，10秒后显示提示框
+    this.loadingTimeout = setTimeout(() => {
+      if (this.loading) {
+        console.warn('电子书加载超时，显示提示框');
+        this.loading = false;
+        this.showTimeoutDialog = true;
+      }
+    }, 10000);
 
     this.loading = true;
     const url = `/api/review/me?count=true`;
@@ -702,11 +773,17 @@ export default {
         this.unread_count = rsp.data.count;
       }
     })
+    .catch(error => {
+      console.error('获取未读消息数失败:', error);
+    })
 
     this.$backend(`/api/user/info`).then(rsp => {
       if (rsp.err == "ok") {
         this.user = rsp.data;
       }
+    })
+    .catch(error => {
+      console.error('获取用户信息失败:', error);
     })
 
     this.book = ePub(this.book_url);
@@ -724,13 +801,24 @@ export default {
       this.book_title = metadata.title;
       const url = `/api/review/book?title=${this.book_title}`;
       this.$backend(url).then(rsp => {
-        this.book_id = rsp.data.id;
+        if (rsp.err == "ok") {
+          this.book_id = rsp.data.id;
+        }
       })
+      .catch(error => {
+        console.error('获取书籍ID失败:', error);
+      })
+    })
+    .catch(error => {
+      console.error('加载书籍元数据失败:', error);
     });
 
     // 加载目录
     this.book.loaded.navigation.then(nav => {
       this.toc_items = nav.toc
+    })
+    .catch(error => {
+      console.error('加载目录失败:', error);
     });
 
     this.init_listeners();
@@ -741,9 +829,17 @@ export default {
 
     this.book.ready.then(() => {
       const savedPosition = localStorage.getItem('lastReadPosition');
-      this.rendition.display(savedPosition || this.display_url).then(() => {
-        this.loading = false;
-      })
+      return this.rendition.display(savedPosition || this.display_url);
+    })
+    .then(() => {
+      clearTimeout(this.loadingTimeout);
+      this.loading = false;
+    })
+    .catch(error => {
+      clearTimeout(this.loadingTimeout);
+      console.error('加载电子书失败:', error);
+      this.loading = false;
+      this.showTimeoutDialog = true;
     })
 
   },
@@ -798,11 +894,12 @@ export default {
     toolbar_left: -999,
     toolbar_top: 0,
 
-    is_debug_signal: true,
-    is_debug_click: true,
+    is_debug_signal: false,
+    is_debug_click: false,
     unread_count: 0,
     is_handlering_selected_content: false,
     check_if_selected_content: false,
+    showTimeoutDialog: false,
   })
 }
 </script>
