@@ -138,23 +138,31 @@ export default {
   props: ['book_url', 'display_url', 'debug', 'themes_css'],
   computed: {
     switch_theme_icon: function () {
-      return this.settings.theme_mode == "day" ? "mdi-weather-night" : "mdi-weather-sunny";
+      // 根据当前主题类型自动设置相反的切换按钮图标
+      // 前两个主题（white, eyecare）是白天主题，切换按钮应显示为切换至黑夜
+      // 后两个主题（grey, dark）是黑夜主题，切换按钮应显示为切换至白天
+      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
+      return isDayTheme ? "mdi-weather-night" : "mdi-weather-sunny";
     },
     switch_theme_text: function () {
-      return this.settings.theme_mode == "day" ? "夜晚" : "白天";
+      // 根据当前主题类型自动设置相反的切换按钮文本
+      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
+      return isDayTheme ? "夜晚" : "白天";
     },
   },
   methods: {
     switch_theme: function () {
-      const current_mode = this.settings.theme_mode;
-      if (current_mode == "day") {
+      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
+      if (isDayTheme) {
+        // 当前是白天主题，切换到黑夜主题
         this.settings.app_theme = "dark"
         this.settings.theme_mode = "night";
-        this.settings.theme = this.settings.theme_night;
+        this.settings.theme = this.settings.theme_night || "grey";
       } else {
+        // 当前是黑夜主题，切换到白天主题
         this.settings.app_theme = "light"
         this.settings.theme_mode = "day";
-        this.settings.theme = this.settings.theme_day;
+        this.settings.theme = this.settings.theme_day || "white";
       }
       this.rendition.themes.select(this.settings.theme);
       this.save_settings();

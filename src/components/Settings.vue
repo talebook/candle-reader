@@ -127,6 +127,10 @@ export default {
     },
     methods: {
         set_and_emit: function(key, val) {
+            // 为字体大小添加限制：最小12px，最大48px
+            if (key === 'font_size') {
+                val = Math.max(12, Math.min(48, val));
+            }
             this.opt = {
                 ...this.opt,
                 [key]: val
@@ -134,6 +138,9 @@ export default {
             this.$emit("update", { ...this.opt });
         },
         set_theme_and_emit: function(name, mode) {
+            // 设置主题，并根据主题类型自动设置相反的主题模式
+            // 前两个主题（white, eyecare）是白天主题，切换按钮应显示为切换至黑夜
+            // 后两个主题（grey, dark）是黑夜主题，切换按钮应显示为切换至白天
             this.opt = {
                 ...this.opt,
                 theme: name,
