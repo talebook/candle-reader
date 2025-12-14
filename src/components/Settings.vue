@@ -4,7 +4,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>亮度*</span>
+                    <span>亮度</span>
                 </v-col>
                 <v-col cols="9">
                     <v-slider hide-details v-model="opt.brightness" max="100" min="1" step=1
@@ -16,7 +16,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span class="text-justify">字体*</span>
+                    <span class="text-justify">字体</span>
                 </v-col>
                 <v-col cols="3" height="48">
                     <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("font_size", opt.font_size - 2)'>A-</v-btn>
