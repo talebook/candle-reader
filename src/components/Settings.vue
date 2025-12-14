@@ -14,20 +14,20 @@
         </v-list-item>
 
         <v-list-item class="my-2">
-            <v-row class="align-center">
+            <v-row class="align-center gx-3">
                 <v-col cols="2">
-                    <span class="text-justify">字体</span>
+                    <span class="text-justify">字体*</span>
                 </v-col>
-                <v-col cols="3" height="48">
+                <v-col cols="2">
                     <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("font_size", opt.font_size - 2)'>A-</v-btn>
                 </v-col>
-                <v-col cols="2">
-                    <span class="d-inline-blockx text-center d-flex">{{ opt.font_size }}</span>
+                <v-col cols="2" class="d-flex align-center justify-center">
+                    <span class="d-inline-blockx text-center">{{ opt.font_size }}</span>
                 </v-col>
                 <v-col cols="3">
                     <v-btn variant="outlined" density="comfortable" @click='set_and_emit("font_size", opt.font_size + 2)'>A+</v-btn>
                 </v-col>
-                <v-col cols="2">
+                <v-col cols="3">
                     <v-btn variant="outlined" density="comfortable" @click='set_and_emit("font_size", 18)'>默认</v-btn>
                 </v-col>
             </v-row>
