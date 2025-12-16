@@ -16,7 +16,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center gx-3">
                 <v-col cols="2">
-                    <span class="text-justify">字体*</span>
+                    <span class="text-justify">字体</span>
                 </v-col>
                 <v-col cols="2">
                     <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("font_size", opt.font_size - 2)'>A-</v-btn>

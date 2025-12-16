@@ -104,16 +104,18 @@
         <div id="status-bar-left" class="align-start">
           {{ current_toc_title }}
         </div>
-        <div id="status-bar-right" class="align-end">
+        <!-- 注释掉阅读进度显示 -->
+        <!-- <div id="status-bar-right" class="align-end">
           {{ current_toc_progress }}
-        </div>
+        </div> -->
       </div>
       <div id="reader"></div>
-      <div id="status-bar-bottom" :class="settings.theme">
+      <!-- 注释掉底部状态栏 -->
+      <!-- <div id="status-bar-bottom" :class="settings.theme">
         <div class="progress-bar-container">
           <div class="progress-bar" :style="{ width: current_toc_progress }"></div>
         </div>
-      </div>
+      </div> -->
     </v-main>
 
   </v-app>
@@ -578,6 +580,8 @@ export default {
       })
     },
     on_location_changed: function (loc) {
+      // 注释掉阅读进度计算代码，因为不起作用
+      /*
       // 使用epub.js的currentLocation()获取当前位置信息
       const location = this.rendition.currentLocation();
       
@@ -591,6 +595,7 @@ export default {
         const progress = totalSpines > 0 ? Math.round((spineIndex / totalSpines) * 10000) / 100 : 0;
         this.current_toc_progress = progress + '%';
       }
+      */
 
       // 只处理当前显示的章节，减少API请求
       const start = new ePub.CFI(loc.start);
@@ -998,7 +1003,7 @@ export default {
 
 #reader {
   top: 24px;
-  height: calc(100% - 54px); /* 24px top bar + 30px bottom bar */
+  height: calc(100% - 24px); /* 24px top bar only */
   width: 100%;
   position: absolute;
 }
