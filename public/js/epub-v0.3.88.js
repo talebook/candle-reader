@@ -11859,7 +11859,7 @@ class IframeView {
           item.element.removeEventListener("touchstart", l);
         }
 
-        ;
+        
       });
       delete this.highlights[cfiRange];
     }
@@ -11877,7 +11877,7 @@ class IframeView {
           item.element.removeEventListener("touchstart", l);
         }
 
-        ;
+        
       });
       delete this.underlines[cfiRange];
     }
@@ -11895,7 +11895,7 @@ class IframeView {
           item.element.removeEventListener("touchstart", l);
         }
 
-        ;
+        
       });
       delete this.marks[cfiRange];
     }
@@ -18080,7 +18080,7 @@ function lookup(filename) {
   return filename && mime_mimeTypes[filename.split(".").pop().toLowerCase()] || defaultValue;
 }
 
-;
+
 /* harmony default export */ var mime = ({
   lookup
 });

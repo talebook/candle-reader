@@ -82,45 +82,89 @@
       <v-overlay v-model="loading" z-index="auto" class="align-center justify-center" persistent>
         <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
       </v-overlay>
-      <div id="status-bar" :class="settings.theme">
+
+      <!-- 加载超时提示框 -->
+      <v-dialog v-model="showTimeoutDialog" max-width="500px">
+        <v-card>
+          <v-card-title class="text-h5 text-center">加载超时</v-card-title>
+          <v-card-text class="text-center">
+            电子书加载超时，可能是网络问题或文件格式不支持。
+          </v-card-text>
+          <v-card-actions class="justify-center">
+            <v-btn color="primary" variant="text" @click="showTimeoutDialog = false">
+              关闭
+            </v-btn>
+            <v-btn color="primary" variant="flat" @click="retryLoad">
+              重试
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+      <div id="status-bar-top" :class="settings.theme">
         <div id="status-bar-left" class="align-start">
           {{ current_toc_title }}
         </div>
-        <div id="status-bar-right" class="align-end">
+        <!-- 注释掉阅读进度显示 -->
+        <!-- <div id="status-bar-right" class="align-end">
           {{ current_toc_progress }}
-        </div>
+        </div> -->
       </div>
       <div id="reader"></div>
+      <!-- 注释掉底部状态栏 -->
+      <!-- <div id="status-bar-bottom" :class="settings.theme">
+        <div class="progress-bar-container">
+          <div class="progress-bar" :style="{ width: current_toc_progress }"></div>
+        </div>
+      </div> -->
     </v-main>
 
   </v-app>
 </template>
 
 <script>
+import Settings from './Settings.vue'
+import BookToc from './BookToc.vue'
+import Guest from './Guest.vue'
+import UserCenter from './UserCenter.vue'
+import BookComments from './BookComments.vue'
+
 export default {
   name: 'EpubReader',
   components: {
+    Settings,
+    BookToc,
+    Guest,
+    UserCenter,
+    BookComments
   },
   props: ['book_url', 'display_url', 'debug', 'themes_css'],
   computed: {
     switch_theme_icon: function () {
-      return this.settings.theme_mode == "day" ? "mdi-weather-night" : "mdi-weather-sunny";
+      // 根据当前主题类型自动设置相反的切换按钮图标
+      // 前两个主题（white, eyecare）是白天主题，切换按钮应显示为切换至黑夜
+      // 后两个主题（grey, dark）是黑夜主题，切换按钮应显示为切换至白天
+      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
+      return isDayTheme ? "mdi-weather-night" : "mdi-weather-sunny";
     },
     switch_theme_text: function () {
-      return this.settings.theme_mode == "day" ? "夜晚" : "白天";
+      // 根据当前主题类型自动设置相反的切换按钮文本
+      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
+      return isDayTheme ? "夜晚" : "白天";
     },
   },
   methods: {
     switch_theme: function () {
-      const current_mode = this.settings.theme_mode;
-      if (current_mode == "day") {
+      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
+      if (isDayTheme) {
+        // 当前是白天主题，切换到黑夜主题
         this.settings.app_theme = "dark"
         this.settings.theme_mode = "night";
-        this.settings.theme = this.settings.theme_night;
+        this.settings.theme = this.settings.theme_night || "grey";
       } else {
+        // 当前是黑夜主题，切换到白天主题
         this.settings.app_theme = "light"
         this.settings.theme_mode = "day";
-        this.settings.theme = this.settings.theme_day;
+        this.settings.theme = this.settings.theme_day || "white";
       }
       this.rendition.themes.select(this.settings.theme);
       this.save_settings();
@@ -160,6 +204,18 @@ export default {
       this.settings[theme_key] = this.settings.theme;
       this.rendition.themes.select(this.settings.theme);
       this.settings.app_theme = (mode == "day") ? "light" : "dark";
+      
+      // 应用亮度设置
+      if (opt.brightness !== undefined) {
+        const brightness = opt.brightness / 100;
+        document.getElementById('reader').style.filter = `brightness(${brightness})`;
+      }
+      
+      // 应用字体大小设置
+      if (opt.font_size !== undefined) {
+        this.rendition.themes.fontSize(opt.font_size + 'px');
+      }
+      
       this.save_settings();
     },
     on_click_toc: function (item) {
@@ -296,7 +352,6 @@ export default {
       console.log("got spine href in toc:", toc)
       if (toc === undefined) {
         return;
-        debugger
       }
 
       // 填充 cfi 定位信息
@@ -525,26 +580,43 @@ export default {
       })
     },
     on_location_changed: function (loc) {
-      var w = this.rendition.currentLocation();
-      this.current_toc_progress = ""; // w.end.percentage + '%';
+      // 注释掉阅读进度计算代码，因为不起作用
+      /*
+      // 使用epub.js的currentLocation()获取当前位置信息
+      const location = this.rendition.currentLocation();
+      
+      // 确保location和location.end存在，然后计算进度
+      if (location && location.end && location.end.percentage !== undefined) {
+        this.current_toc_progress = Math.round(location.end.percentage * 100) / 100 + '%';
+      } else {
+        // 备选方案：使用spine位置计算进度
+        const spineIndex = location.start.spinePos;
+        const totalSpines = this.book.spine.length;
+        const progress = totalSpines > 0 ? Math.round((spineIndex / totalSpines) * 10000) / 100 : 0;
+        this.current_toc_progress = progress + '%';
+      }
+      */
 
+      // 只处理当前显示的章节，减少API请求
       const start = new ePub.CFI(loc.start);
-      const end = new ePub.CFI(loc.end)
       const contents_list = this.rendition.getContents();
-
-      for (var idx = start.spinePos; idx <= end.spinePos; idx++) {
-        const spine = this.book.spine.get(idx);
-        const found = contents_list.filter(c => { return c.cfiBase == spine.cfiBase })
-        if (found === undefined) {
-          continue
-        }
+      const spine = this.book.spine.get(start.spinePos);
+      const found = contents_list.filter(c => { return c.cfiBase == spine.cfiBase })
+      if (found && found.length > 0) {
         const contents = found[0];
         const elem = contents.document.getElementsByTagName("p")[0];
-        const target_cfi = new ePub.CFI(elem, spine.cfiBase)
-        const toc = this.find_toc(target_cfi, contents, spine.href);
-
-        this.current_toc_title = toc ? toc.label : '';
-        this.load_comments_summary(contents, toc);
+        if (elem) {
+          const target_cfi = new ePub.CFI(elem, spine.cfiBase)
+          const toc = this.find_toc(target_cfi, contents);
+          
+          if (toc) {
+            // 只有章节变化时才更新标题和加载评论
+            if (this.current_toc_title !== toc.label) {
+              this.current_toc_title = toc.label;
+              this.load_comments_summary(contents, toc);
+            }
+          }
+        }
       }
     },
     load_comments_summary: function (contents, toc) {
@@ -583,6 +655,11 @@ export default {
     },
     add_comment_icons: function (contents, toc) {
       console.log("添加评论图标和计数器：", toc.label.trim())
+      
+      // 如果章评功能关闭，不添加图标
+      if (!this.settings.show_comments) {
+        return;
+      }
 
       // 确定 segment_id 的最大值
       var max_segment_id = 0;
@@ -617,6 +694,9 @@ export default {
               currentNode = currentNode.nextSibling;
           }
       }
+      
+      // 标记已渲染图标
+      toc.icons_rendered = true;
     },
 
     add_icon_into_paragraph: function (contents, elem, segment_id, toc) {
@@ -626,23 +706,32 @@ export default {
       }
       console.log("添加评论图标：", segment_id, elem, state)
 
-      // const contents = this.rendition.getContents()[0];
+      // 检查是否已经添加了评论图标，避免重复添加
+      if (elem.querySelector('.comment-icon')) {
+        return;
+      }
+
       const cfi = new ePub.CFI(elem, contents.cfiBase).toString();
       const count = state.reviewNum;
       const is_hot = state.is_hot ? "hot-comment" : "";
 
-      // 创建评论计数器
+      // 创建评论容器
       const doc = contents.document;
-      const commentCount = doc.createElement("span");
-      commentCount.textContent = count > 0 ? count : "";
-      commentCount.className = `comment-count ${is_hot}`;
-
-      // 创建评论图标
       const commentContainer = doc.createElement("div");
       commentContainer.className = `comment-icon ${is_hot}`;
+      commentContainer.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        ${count > 0 ? `<span class="comment-count">${count}</span>` : ''}
+      `;
+
+      // 为段落添加相对定位，确保评论图标可以绝对定位
+      if (elem.style.position === '' || elem.style.position === 'static') {
+        elem.style.position = 'relative';
+      }
 
       // 将评论组件添加到段落末尾
-      commentContainer.appendChild(commentCount);
       elem.appendChild(commentContainer);
 
       commentContainer.addEventListener('click', (event) => {
@@ -676,6 +765,47 @@ export default {
       this.user = user_data;
       this.is_login = true;
     },
+    retryLoad: function() {
+      // 重置状态并重新加载电子书
+      this.showTimeoutDialog = false;
+      this.loading = true;
+      
+      // 重新初始化并加载电子书
+      this.book = ePub(this.book_url);
+      this.rendition = this.book.renderTo("reader", {
+        manager: "continuous",
+        flow: this.settings.flow,
+        width: "100%",
+        height: "100%",
+      });
+      
+      this.init_listeners();
+      this.init_themes();
+      
+      this.book.ready.then(() => {
+        const savedPosition = localStorage.getItem('lastReadPosition');
+        return this.rendition.display(savedPosition || this.display_url);
+      })
+      .then(() => {
+        clearTimeout(this.loadingTimeout);
+        this.loading = false;
+      })
+      .catch(error => {
+        clearTimeout(this.loadingTimeout);
+        console.error('加载电子书失败:', error);
+        this.loading = false;
+        this.showTimeoutDialog = true;
+      })
+      
+      // 重新设置超时定时器
+      this.loadingTimeout = setTimeout(() => {
+        if (this.loading) {
+          console.warn('电子书加载超时，显示提示框');
+          this.loading = false;
+          this.showTimeoutDialog = true;
+        }
+      }, 10000);
+    },
   },
   mounted: function () {
     const link = document.createElement('link');
@@ -692,6 +822,15 @@ export default {
     }
     this.is_debug_signal = this.debug;
     this.is_debug_click = this.debug;
+    
+    // 添加加载超时机制，10秒后显示提示框
+    this.loadingTimeout = setTimeout(() => {
+      if (this.loading) {
+        console.warn('电子书加载超时，显示提示框');
+        this.loading = false;
+        this.showTimeoutDialog = true;
+      }
+    }, 10000);
 
     this.loading = true;
     const url = `/api/review/me?count=true`;
@@ -702,11 +841,17 @@ export default {
         this.unread_count = rsp.data.count;
       }
     })
+    .catch(error => {
+      console.error('获取未读消息数失败:', error);
+    })
 
     this.$backend(`/api/user/info`).then(rsp => {
       if (rsp.err == "ok") {
         this.user = rsp.data;
       }
+    })
+    .catch(error => {
+      console.error('获取用户信息失败:', error);
     })
 
     this.book = ePub(this.book_url);
@@ -724,13 +869,24 @@ export default {
       this.book_title = metadata.title;
       const url = `/api/review/book?title=${this.book_title}`;
       this.$backend(url).then(rsp => {
-        this.book_id = rsp.data.id;
+        if (rsp.err == "ok") {
+          this.book_id = rsp.data.id;
+        }
       })
+      .catch(error => {
+        console.error('获取书籍ID失败:', error);
+      })
+    })
+    .catch(error => {
+      console.error('加载书籍元数据失败:', error);
     });
 
     // 加载目录
     this.book.loaded.navigation.then(nav => {
       this.toc_items = nav.toc
+    })
+    .catch(error => {
+      console.error('加载目录失败:', error);
     });
 
     this.init_listeners();
@@ -741,9 +897,22 @@ export default {
 
     this.book.ready.then(() => {
       const savedPosition = localStorage.getItem('lastReadPosition');
-      this.rendition.display(savedPosition || this.display_url).then(() => {
-        this.loading = false;
-      })
+      return this.rendition.display(savedPosition || this.display_url);
+    })
+    .then(() => {
+      clearTimeout(this.loadingTimeout);
+      this.loading = false;
+      
+      // 初始化亮度和字体大小设置
+      const brightness = this.settings.brightness / 100;
+      document.getElementById('reader').style.filter = `brightness(${brightness})`;
+      this.rendition.themes.fontSize(this.settings.font_size + 'px');
+    })
+    .catch(error => {
+      clearTimeout(this.loadingTimeout);
+      console.error('加载电子书失败:', error);
+      this.loading = false;
+      this.showTimeoutDialog = true;
     })
 
   },
@@ -798,11 +967,12 @@ export default {
     toolbar_left: -999,
     toolbar_top: 0,
 
-    is_debug_signal: true,
-    is_debug_click: true,
+    is_debug_signal: false,
+    is_debug_click: false,
     unread_count: 0,
     is_handlering_selected_content: false,
     check_if_selected_content: false,
+    showTimeoutDialog: false,
   })
 }
 </script>
@@ -833,12 +1003,12 @@ export default {
 
 #reader {
   top: 24px;
-  height: calc(100% - 24px);
+  height: calc(100% - 24px); /* 24px top bar only */
   width: 100%;
   position: absolute;
 }
 
-#status-bar {
+#status-bar-top {
   height: 24px;
   width: 100%;
   padding: 0 8px;
@@ -850,6 +1020,34 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+#status-bar-bottom {
+  height: 30px;
+  width: 100%;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--primary-color, #1976d2);
+  transition: width 0.3s ease;
+  border-radius: 2px;
 }
 
 .fixed {
