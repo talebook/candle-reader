@@ -334,7 +334,7 @@ export default {
         if (toc.href == target_href) {
           return toc
         }
-        if (toc.subitems.length > 0) {
+        if (toc.subitems !== undefined && toc.subitems.length > 0) {
           const found = this.find_same_href_in_toc_tree(toc.subitems, target_href);
           if (found !== undefined) {
             return found
