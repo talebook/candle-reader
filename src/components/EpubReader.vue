@@ -47,7 +47,7 @@
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" contained close-on-content-click  z-index="234">
-      <book-toc :meta="book_meta" :toc_items="toc_items" @click:select="on_click_toc"></book-toc>
+      <book-toc :meta="book_meta" :toc_items="toc_items" :current-chapter="current_toc" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
@@ -580,23 +580,6 @@ export default {
       })
     },
     on_location_changed: function (loc) {
-      // 注释掉阅读进度计算代码，因为不起作用
-      /*
-      // 使用epub.js的currentLocation()获取当前位置信息
-      const location = this.rendition.currentLocation();
-      
-      // 确保location和location.end存在，然后计算进度
-      if (location && location.end && location.end.percentage !== undefined) {
-        this.current_toc_progress = Math.round(location.end.percentage * 100) / 100 + '%';
-      } else {
-        // 备选方案：使用spine位置计算进度
-        const spineIndex = location.start.spinePos;
-        const totalSpines = this.book.spine.length;
-        const progress = totalSpines > 0 ? Math.round((spineIndex / totalSpines) * 10000) / 100 : 0;
-        this.current_toc_progress = progress + '%';
-      }
-      */
-
       // 只处理当前显示的章节，减少API请求
       const start = new ePub.CFI(loc.start);
       const contents_list = this.rendition.getContents();
@@ -615,6 +598,8 @@ export default {
               this.current_toc_title = toc.label;
               this.load_comments_summary(contents, toc);
             }
+            // 保存当前章节对象
+            this.current_toc = toc;
           }
         }
       }
@@ -962,6 +947,7 @@ export default {
     selected_location: {}, // 选中内容的位置
 
     current_toc_title: "",
+    current_toc: null, // 当前阅读的章节对象
     current_toc_progress: "",
 
     toolbar_left: -999,

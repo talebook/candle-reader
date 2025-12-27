@@ -43,7 +43,29 @@ export default {
             return items;
         }
     },
+    watch: {
+        // 当目录项或当前章节变化时，滚动到当前章节
+        toc_items: {
+            handler() {
+                this.$nextTick(() => {
+                    this.scrollToCurrentChapter();
+                });
+            },
+            deep: true
+        },
+        currentChapter: {
+            handler() {
+                this.$nextTick(() => {
+                    this.scrollToCurrentChapter();
+                });
+            }
+        }
+    },
     mounted: function () {
+        // 初始加载时滚动到当前章节
+        this.$nextTick(() => {
+            this.scrollToCurrentChapter();
+        });
     },
     methods: {
         click_toc: function (item) {
@@ -70,11 +92,46 @@ export default {
             }
             return translation[key]!== undefined? translation[key] : key;
         },
-
+        isCurrentChapter: function(item) {
+            // 检查是否是当前章节
+            if (!this.currentChapter) return false;
+            
+            // 比较章节ID或标题
+            if (item.id && this.currentChapter.id) {
+                return item.id === this.currentChapter.id;
+            }
+            // 比较href和label
+            return item.href === this.currentChapter.href && item.label === this.currentChapter.label;
+        },
+        scrollToCurrentChapter: function() {
+            // 滚动到当前章节
+            if (!this.currentChapter) return;
+            
+            // 查找当前章节的DOM元素
+            const listItems = this.$refs.listItem || [];
+            for (const item of listItems) {
+                if (item && item.$el) {
+                    // 检查元素是否是当前章节
+                    const isCurrent = Array.from(item.$el.classList).includes('current-chapter');
+                    if (isCurrent) {
+                        // 滚动到该元素
+                        item.$el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        break;
+                    }
+                }
+            }
+        }
     },
-    props: ["meta", "toc_items"],
+    props: ["meta", "toc_items", "currentChapter"],
     data: () => ({
     })
 }
-
 </script>
+
+<style scoped>
+.current-chapter {
+  background-color: rgba(63, 81, 181, 0.1) !important; /* 浅蓝色背景 */
+  border-left: 4px solid #3f51b5 !important; /* 左侧蓝色边框 */
+  font-weight: bold !important;
+}
+</style>
