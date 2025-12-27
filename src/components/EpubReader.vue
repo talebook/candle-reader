@@ -104,18 +104,16 @@
         <div id="status-bar-left" class="align-start">
           {{ current_toc_title }}
         </div>
-        <!-- 注释掉阅读进度显示 -->
-        <!-- <div id="status-bar-right" class="align-end">
-          {{ current_toc_progress }}
-        </div> -->
+        <div id="status-bar-right" class="align-end">
+          {{ currentChapterIndex }}/{{ totalChapters }} ({{ readingProgress }}%)
+        </div>
       </div>
       <div id="reader"></div>
-      <!-- 注释掉底部状态栏 -->
-      <!-- <div id="status-bar-bottom" :class="settings.theme">
+      <div id="status-bar-bottom" :class="settings.theme">
         <div class="progress-bar-container">
-          <div class="progress-bar" :style="{ width: current_toc_progress }"></div>
+          <div class="progress-bar" :style="{ width: readingProgress + '%' }"></div>
         </div>
-      </div> -->
+      </div>
     </v-main>
 
   </v-app>
@@ -150,6 +148,55 @@ export default {
       // 根据当前主题类型自动设置相反的切换按钮文本
       const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
       return isDayTheme ? "夜晚" : "白天";
+    },
+    totalChapters: function() {
+      // 计算总章节数
+      let count = 0;
+      
+      function countChapters(tocArray) {
+        for (const item of tocArray) {
+          count++;
+          if (item.subitems && item.subitems.length > 0) {
+            countChapters(item.subitems);
+          }
+        }
+      }
+      
+      countChapters(this.toc_items);
+      return count;
+    },
+    currentChapterIndex: function() {
+      // 获取当前章节索引
+      if (!this.current_toc) return 0;
+      
+      const allChapters = [];
+      
+      function getAllChapters(tocArray) {
+        for (const item of tocArray) {
+          allChapters.push(item);
+          if (item.subitems && item.subitems.length > 0) {
+            getAllChapters(item.subitems);
+          }
+        }
+      }
+      
+      getAllChapters(this.toc_items);
+      
+      // 查找当前章节在数组中的索引
+      for (let i = 0; i < allChapters.length; i++) {
+        const chapter = allChapters[i];
+        if ((chapter.id && this.current_toc.id && chapter.id === this.current_toc.id) ||
+            (chapter.href === this.current_toc.href && chapter.label === this.current_toc.label)) {
+          return i + 1; // 返回从1开始的索引
+        }
+      }
+      
+      return 0;
+    },
+    readingProgress: function() {
+      // 计算阅读进度百分比
+      if (this.totalChapters === 0) return 0;
+      return Math.round((this.currentChapterIndex / this.totalChapters) * 100);
     },
   },
   methods: {
