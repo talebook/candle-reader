@@ -1,5 +1,5 @@
 <template>
-        <v-list @click:select="click_toc">
+        <v-list @click:select="click_toc" ref="tocList">
             <v-list-group>
                 <template v-slot:activator="{ props }">
                     <v-list-item v-bind="props" title="书籍信息" ></v-list-item>
@@ -10,16 +10,22 @@
             <v-divider ></v-divider>
             <template v-for="(item, idx) in toc_items">
                 <v-list-item v-if="item.subitems.length == 0" prepend-icon="mdi-book-open-page-variant-outline"
-                    :title="item.label" :value="item.href"></v-list-item>
+                    :title="item.label" :value="item.href"
+                    :class="{ 'current-chapter': isCurrentChapter(item) }"
+                    ref="listItem"></v-list-item>
 
                 <v-list-group v-else :key="item.href">
                     <template v-slot:activator="{ props }">
                         <v-list-item v-bind="props" prepend-icon="mdi-book-open-page-variant-outline"
-                            :title="item.label" :value="item.href"></v-list-item>
+                            :title="item.label" :value="item.href"
+                            :class="{ 'current-chapter': isCurrentChapter(item) }"
+                            ref="listItem"></v-list-item>
                     </template>
 
-                    <v-list-item v-for="(subitem, subidx) in item.subitems" :key="item.href" :title="subitem.label"
-                        :value="subitem.href"></v-list-item>
+                    <v-list-item v-for="(subitem, subidx) in item.subitems" :key="subitem.href" :title="subitem.label"
+                        :value="subitem.href"
+                        :class="{ 'current-chapter': isCurrentChapter(subitem) }"
+                        ref="listItem"></v-list-item>
                 </v-list-group>
 
             </template>
@@ -96,29 +102,58 @@ export default {
             // 检查是否是当前章节
             if (!this.currentChapter) return false;
             
-            // 比较章节ID或标题
-            if (item.id && this.currentChapter.id) {
-                return item.id === this.currentChapter.id;
-            }
-            // 比较href和label
-            return item.href === this.currentChapter.href && item.label === this.currentChapter.label;
+            // 更可靠的比较方式：只比较href，因为label可能会有细微差别
+            // 规范化href，去除可能的锚点
+            const normalizeHref = (href) => {
+                if (!href) return '';
+                return href.split('#')[0];
+            };
+            
+            const currentHref = normalizeHref(this.currentChapter.href);
+            const itemHref = normalizeHref(item.href);
+            
+            return currentHref === itemHref;
         },
         scrollToCurrentChapter: function() {
             // 滚动到当前章节
             if (!this.currentChapter) return;
             
-            // 查找当前章节的DOM元素
-            const listItems = this.$refs.listItem || [];
-            for (const item of listItems) {
-                if (item && item.$el) {
-                    // 检查元素是否是当前章节
-                    const isCurrent = Array.from(item.$el.classList).includes('current-chapter');
-                    if (isCurrent) {
-                        // 滚动到该元素
-                        item.$el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        break;
+            // 遍历目录树，查找匹配的章节
+            const findMatchingChapter = (tocArray) => {
+                for (const item of tocArray) {
+                    if (this.isCurrentChapter(item)) {
+                        return item;
+                    }
+                    if (item.subitems && item.subitems.length > 0) {
+                        const found = findMatchingChapter(item.subitems);
+                        if (found) return found;
                     }
                 }
+                return null;
+            };
+            
+            const matchingChapter = findMatchingChapter(this.toc_items);
+            if (matchingChapter) {
+                // 使用setTimeout确保DOM已经更新
+                setTimeout(() => {
+                    // 使用ref获取目录列表容器
+                    const listContainer = this.$refs.tocList;
+                    if (listContainer) {
+                        // 查找所有列表项
+                        const listItems = listContainer.querySelectorAll('.v-list-item');
+                        
+                        // 遍历列表项，找到匹配的章节
+                        for (const item of listItems) {
+                            // 获取列表项的title属性
+                            const title = item.getAttribute('title');
+                            if (title && matchingChapter.label && title.includes(matchingChapter.label)) {
+                                // 滚动到匹配的元素
+                                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                break;
+                            }
+                        }
+                    }
+                }, 100);
             }
         }
     },

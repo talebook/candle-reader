@@ -47,7 +47,7 @@
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" contained close-on-content-click  z-index="234">
-      <book-toc :meta="book_meta" :toc_items="toc_items" :current-chapter="current_toc" @click:select="on_click_toc"></book-toc>
+      <book-toc ref="bookTocComponent" :meta="book_meta" :toc_items="toc_items" :current-chapter="current_toc" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
@@ -105,7 +105,7 @@
           {{ current_toc_title }}
         </div>
         <div id="status-bar-right" class="align-end">
-          {{ currentChapterIndex }}/{{ totalChapters }} ({{ readingProgress }}%)
+          {{ currentChapterIndex }}章/{{ totalChapters }}章 ({{ readingProgress }}%)
         </div>
       </div>
       <div id="reader"></div>
@@ -230,6 +230,14 @@ export default {
       this.menu.show_navbar = true;
       for (var k in this.menu.panels) {
         this.menu.panels[k] = (k == target);
+      }
+      
+      // 当打开目录时，延迟一下确保DOM更新，然后触发滚动
+      if (target === 'toc') {
+        setTimeout(() => {
+          // 触发目录组件的滚动逻辑
+          this.$refs.bookTocComponent && this.$refs.bookTocComponent.scrollToCurrentChapter();
+        }, 300);
       }
     },
     save_settings: function() {
