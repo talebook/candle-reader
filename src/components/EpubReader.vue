@@ -105,13 +105,13 @@
           {{ current_toc_title }}
         </div>
         <div id="status-bar-right" class="align-end">
-          {{ currentChapterIndex }}章/{{ totalChapters }}章 ({{ readingProgress }}%)
+          {{ currentChapterIndex }}章/{{ totalChapters }}章 ({{ readingProgress }})
         </div>
       </div>
       <div id="reader"></div>
       <div id="status-bar-bottom" :class="settings.theme">
         <div class="progress-bar-container">
-          <div class="progress-bar" :style="{ width: readingProgress + '%' }"></div>
+          <div class="progress-bar" :style="{ width: readingProgress }"></div>
         </div>
       </div>
     </v-main>
@@ -194,9 +194,10 @@ export default {
       return 0;
     },
     readingProgress: function() {
-      // 计算阅读进度百分比
-      if (this.totalChapters === 0) return 0;
-      return Math.round((this.currentChapterIndex / this.totalChapters) * 100);
+      // 计算阅读进度百分比，直接返回包含百分号的字符串
+      if (this.totalChapters === 0) return '0%';
+      const percentage = Math.round((this.currentChapterIndex / this.totalChapters) * 100);
+      return `${percentage}%`;
     },
   },
   methods: {
@@ -580,6 +581,12 @@ export default {
       this.rendition.on('locationChanged', this.on_location_changed);
       this.rendition.on('mousedown', this.on_mousedown);
       this.rendition.on('mouseup', this.on_mouseup);
+      this.rendition.on('resized', this.on_resized);
+      // 添加全屏变化事件监听
+      document.addEventListener('fullscreenchange', this.on_fullscreen_change);
+      document.addEventListener('webkitfullscreenchange', this.on_fullscreen_change);
+      document.addEventListener('mozfullscreenchange', this.on_fullscreen_change);
+      document.addEventListener('MSFullscreenChange', this.on_fullscreen_change);
       this.debug_signals();
     },
 
@@ -591,6 +598,49 @@ export default {
       this.rendition.themes.register("brown", this.themes_css);
       this.rendition.themes.register("eyecare", this.themes_css);
       this.rendition.themes.select(this.settings.theme);
+    },
+    on_resized: function () {
+      // 渲染器大小调整完成后的处理
+      console.log('Reader resized');
+      // 强制重新渲染当前页面，解决缩放后卡住问题
+      try {
+        if (this.rendition && this.book) {
+          // 获取当前位置
+          const currentLocation = this.rendition.currentLocation();
+          if (currentLocation && currentLocation.start && currentLocation.start.cfi) {
+            // 重新渲染当前位置
+            this.rendition.display(currentLocation.start.cfi);
+          } else {
+            // 如果获取不到位置，重新渲染当前章节
+            this.rendition.display();
+          }
+        }
+      } catch (error) {
+        console.error('Error during resize re-render:', error);
+      }
+    },
+    on_fullscreen_change: function () {
+      // 全屏状态变化时的处理
+      console.log('Fullscreen state changed');
+      // 强制重新渲染当前页面，解决全屏切换后卡住问题
+      try {
+        if (this.rendition && this.book) {
+          // 延迟一下，确保DOM已经更新
+          setTimeout(() => {
+            // 获取当前位置
+            const currentLocation = this.rendition.currentLocation();
+            if (currentLocation && currentLocation.start && currentLocation.start.cfi) {
+              // 重新渲染当前位置
+              this.rendition.display(currentLocation.start.cfi);
+            } else {
+              // 如果获取不到位置，重新渲染当前章节
+              this.rendition.display();
+            }
+          }, 200);
+        }
+      } catch (error) {
+        console.error('Error during fullscreen re-render:', error);
+      }
     },
     on_add_review: function (content) {
       const loc = this.comments_location
