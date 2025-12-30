@@ -860,6 +860,25 @@ export default {
       this.showTimeoutDialog = false;
       this.loading = true;
       
+      // 清除之前的渲染器和事件监听器
+      if (this.rendition) {
+        // 移除所有事件监听器
+        this.rendition.off();
+        // 销毁渲染器
+        this.rendition.destroy();
+      }
+      
+      if (this.book) {
+        // 销毁书籍实例
+        this.book.destroy();
+      }
+      
+      // 清除阅读器容器内的内容
+      const readerContainer = document.getElementById('reader');
+      if (readerContainer) {
+        readerContainer.innerHTML = '';
+      }
+      
       // 重新初始化并加载电子书
       this.book = ePub(this.book_url);
       this.rendition = this.book.renderTo("reader", {
