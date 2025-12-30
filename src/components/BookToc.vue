@@ -118,43 +118,18 @@ export default {
             // 滚动到当前章节
             if (!this.currentChapter) return;
             
-            // 遍历目录树，查找匹配的章节
-            const findMatchingChapter = (tocArray) => {
-                for (const item of tocArray) {
-                    if (this.isCurrentChapter(item)) {
-                        return item;
-                    }
-                    if (item.subitems && item.subitems.length > 0) {
-                        const found = findMatchingChapter(item.subitems);
-                        if (found) return found;
-                    }
+            // 使用setTimeout确保DOM已经更新
+            setTimeout(() => {
+                // 直接查找带有current-chapter类的元素（更高效的方式）
+                const currentChapterElement = this.$el.querySelector('.current-chapter');
+                if (currentChapterElement) {
+                    // 滚动到元素顶部
+                    currentChapterElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' // 滚动到顶部位置
+                    });
                 }
-                return null;
-            };
-            
-            const matchingChapter = findMatchingChapter(this.toc_items);
-            if (matchingChapter) {
-                // 使用setTimeout确保DOM已经更新
-                setTimeout(() => {
-                    // 使用ref获取目录列表容器
-                    const listContainer = this.$refs.tocList;
-                    if (listContainer) {
-                        // 查找所有列表项
-                        const listItems = listContainer.querySelectorAll('.v-list-item');
-                        
-                        // 遍历列表项，找到匹配的章节
-                        for (const item of listItems) {
-                            // 获取列表项的title属性
-                            const title = item.getAttribute('title');
-                            if (title && matchingChapter.label && title.includes(matchingChapter.label)) {
-                                // 滚动到匹配的元素
-                                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                break;
-                            }
-                        }
-                    }
-                }, 100);
-            }
+            }, 100);
         }
     },
     props: ["meta", "toc_items", "currentChapter"],
