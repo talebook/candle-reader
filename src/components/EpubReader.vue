@@ -902,8 +902,11 @@ export default {
           }
         }, 10000);
         
+        // 使用 book_url 作为唯一标识，为每个书籍存储独立的阅读位置
+        const positionKey = `lastReadPosition_${this.book_url}`;
+        
         this.book.ready.then(() => {
-          const savedPosition = localStorage.getItem('lastReadPosition');
+          const savedPosition = localStorage.getItem(positionKey);
           return this.rendition.display(savedPosition || this.display_url);
         })
         .then(() => {
@@ -917,6 +920,11 @@ export default {
           // 确保覆盖层隐藏并显示错误对话框
           this.loading = false;
           this.showTimeoutDialog = true;
+        });
+        
+        // 监听 relocated 事件，保存当前阅读位置，使用 book_url 作为唯一标识
+        this.rendition.on('relocated', (location) => {
+          localStorage.setItem(positionKey, location.start.cfi);
         });
       } catch (error) {
         console.error('重试加载过程中出现错误:', error);
@@ -1010,12 +1018,16 @@ export default {
 
     this.init_listeners();
     this.init_themes();
+    
+    // 使用 book_url 作为唯一标识，为每个书籍存储独立的阅读位置
+    const positionKey = `lastReadPosition_${this.book_url}`;
+    
     this.rendition.on('relocated', (location) => {
-      localStorage.setItem('lastReadPosition', location.start.cfi);
+      localStorage.setItem(positionKey, location.start.cfi);
     });
 
     this.book.ready.then(() => {
-      const savedPosition = localStorage.getItem('lastReadPosition');
+      const savedPosition = localStorage.getItem(positionKey);
       return this.rendition.display(savedPosition || this.display_url);
     })
     .then(() => {
