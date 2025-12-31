@@ -857,63 +857,61 @@ export default {
     },
     retryLoad: function() {
       // 重置状态并重新加载电子书
-      this.showTimeoutDialog = false;
-      this.loading = true;
-      
-      // 清除之前的渲染器和事件监听器
-      if (this.rendition) {
-        // 移除所有事件监听器
-        this.rendition.off();
-        // 销毁渲染器
-        this.rendition.destroy();
-      }
-      
-      if (this.book) {
-        // 销毁书籍实例
-        this.book.destroy();
-      }
-      
-      // 清除阅读器容器内的内容
-      const readerContainer = document.getElementById('reader');
-      if (readerContainer) {
-        readerContainer.innerHTML = '';
-      }
-      
-      // 重新初始化并加载电子书
-      this.book = ePub(this.book_url);
-      this.rendition = this.book.renderTo("reader", {
-        manager: "continuous",
-        flow: this.settings.flow,
-        width: "100%",
-        height: "100%",
-      });
-      
-      this.init_listeners();
-      this.init_themes();
-      
-      this.book.ready.then(() => {
-        const savedPosition = localStorage.getItem('lastReadPosition');
-        return this.rendition.display(savedPosition || this.display_url);
-      })
-      .then(() => {
+      try {
+        // 立即关闭对话框并显示加载覆盖层
+        this.showTimeoutDialog = false;
+        
+        // 确保覆盖层显示
+        setTimeout(() => {
+          this.loading = true;
+        }, 50);
+        
+        // 清除可能存在的旧定时器
         clearTimeout(this.loadingTimeout);
-        this.loading = false;
-      })
-      .catch(error => {
-        clearTimeout(this.loadingTimeout);
-        console.error('加载电子书失败:', error);
-        this.loading = false;
-        this.showTimeoutDialog = true;
-      })
-      
-      // 重新设置超时定时器
-      this.loadingTimeout = setTimeout(() => {
-        if (this.loading) {
-          console.warn('电子书加载超时，显示提示框');
+        
+        // 重新初始化并加载电子书
+        this.book = ePub(this.book_url);
+        this.rendition = this.book.renderTo("reader", {
+          manager: "continuous",
+          flow: this.settings.flow,
+          width: "100%",
+          height: "100%",
+        });
+        
+        this.init_listeners();
+        this.init_themes();
+        
+        // 重新设置超时定时器
+        this.loadingTimeout = setTimeout(() => {
+          if (this.loading) {
+            console.warn('电子书加载超时，显示提示框');
+            this.loading = false;
+            this.showTimeoutDialog = true;
+          }
+        }, 10000);
+        
+        this.book.ready.then(() => {
+          const savedPosition = localStorage.getItem('lastReadPosition');
+          return this.rendition.display(savedPosition || this.display_url);
+        })
+        .then(() => {
+          clearTimeout(this.loadingTimeout);
+          // 确保覆盖层隐藏
+          this.loading = false;
+        })
+        .catch(error => {
+          clearTimeout(this.loadingTimeout);
+          console.error('加载电子书失败:', error);
+          // 确保覆盖层隐藏并显示错误对话框
           this.loading = false;
           this.showTimeoutDialog = true;
-        }
-      }, 10000);
+        });
+      } catch (error) {
+        console.error('重试加载过程中出现错误:', error);
+        // 确保覆盖层隐藏并显示错误对话框
+        this.loading = false;
+        this.showTimeoutDialog = true;
+      }
     },
   },
   mounted: function () {
