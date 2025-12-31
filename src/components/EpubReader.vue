@@ -47,7 +47,7 @@
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" contained close-on-content-click  z-index="234">
-      <book-toc :meta="book_meta" :toc_items="toc_items" @click:select="on_click_toc"></book-toc>
+      <book-toc ref="bookTocComponent" :meta="book_meta" :toc_items="toc_items" :current-chapter="current_toc" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
@@ -104,18 +104,16 @@
         <div id="status-bar-left" class="align-start">
           {{ current_toc_title }}
         </div>
-        <!-- 注释掉阅读进度显示 -->
-        <!-- <div id="status-bar-right" class="align-end">
-          {{ current_toc_progress }}
-        </div> -->
+        <div id="status-bar-right" class="align-end">
+          {{ currentChapterIndex }}章/{{ totalChapters }}章 ({{ readingProgress }})
+        </div>
       </div>
       <div id="reader"></div>
-      <!-- 注释掉底部状态栏 -->
-      <!-- <div id="status-bar-bottom" :class="settings.theme">
+      <div id="status-bar-bottom" :class="settings.theme">
         <div class="progress-bar-container">
-          <div class="progress-bar" :style="{ width: current_toc_progress }"></div>
+          <div class="progress-bar" :style="{ width: readingProgress }"></div>
         </div>
-      </div> -->
+      </div>
     </v-main>
 
   </v-app>
@@ -151,6 +149,56 @@ export default {
       const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
       return isDayTheme ? "夜晚" : "白天";
     },
+    totalChapters: function() {
+      // 计算总章节数
+      let count = 0;
+      
+      function countChapters(tocArray) {
+        for (const item of tocArray) {
+          count++;
+          if (item.subitems && item.subitems.length > 0) {
+            countChapters(item.subitems);
+          }
+        }
+      }
+      
+      countChapters(this.toc_items);
+      return count;
+    },
+    currentChapterIndex: function() {
+      // 获取当前章节索引
+      if (!this.current_toc) return 0;
+      
+      const allChapters = [];
+      
+      function getAllChapters(tocArray) {
+        for (const item of tocArray) {
+          allChapters.push(item);
+          if (item.subitems && item.subitems.length > 0) {
+            getAllChapters(item.subitems);
+          }
+        }
+      }
+      
+      getAllChapters(this.toc_items);
+      
+      // 查找当前章节在数组中的索引
+      for (let i = 0; i < allChapters.length; i++) {
+        const chapter = allChapters[i];
+        if ((chapter.id && this.current_toc.id && chapter.id === this.current_toc.id) ||
+            (chapter.href === this.current_toc.href && chapter.label === this.current_toc.label)) {
+          return i + 1; // 返回从1开始的索引
+        }
+      }
+      
+      return 0;
+    },
+    readingProgress: function() {
+      // 计算阅读进度百分比，直接返回包含百分号的字符串
+      if (this.totalChapters === 0) return '0%';
+      const percentage = Math.round((this.currentChapterIndex / this.totalChapters) * 100);
+      return `${percentage}%`;
+    },
   },
   methods: {
     switch_theme: function () {
@@ -183,6 +231,14 @@ export default {
       this.menu.show_navbar = true;
       for (var k in this.menu.panels) {
         this.menu.panels[k] = (k == target);
+      }
+      
+      // 当打开目录时，延迟一下确保DOM更新，然后触发滚动
+      if (target === 'toc') {
+        setTimeout(() => {
+          // 触发目录组件的滚动逻辑
+          this.$refs.bookTocComponent && this.$refs.bookTocComponent.scrollToCurrentChapter();
+        }, 300);
       }
     },
     save_settings: function() {
@@ -525,6 +581,12 @@ export default {
       this.rendition.on('locationChanged', this.on_location_changed);
       this.rendition.on('mousedown', this.on_mousedown);
       this.rendition.on('mouseup', this.on_mouseup);
+      this.rendition.on('resized', this.on_resized);
+      // 添加全屏变化事件监听
+      document.addEventListener('fullscreenchange', this.on_fullscreen_change);
+      document.addEventListener('webkitfullscreenchange', this.on_fullscreen_change);
+      document.addEventListener('mozfullscreenchange', this.on_fullscreen_change);
+      document.addEventListener('MSFullscreenChange', this.on_fullscreen_change);
       this.debug_signals();
     },
 
@@ -536,6 +598,49 @@ export default {
       this.rendition.themes.register("brown", this.themes_css);
       this.rendition.themes.register("eyecare", this.themes_css);
       this.rendition.themes.select(this.settings.theme);
+    },
+    on_resized: function () {
+      // 渲染器大小调整完成后的处理
+      console.log('Reader resized');
+      // 强制重新渲染当前页面，解决缩放后卡住问题
+      try {
+        if (this.rendition && this.book) {
+          // 获取当前位置
+          const currentLocation = this.rendition.currentLocation();
+          if (currentLocation && currentLocation.start && currentLocation.start.cfi) {
+            // 重新渲染当前位置
+            this.rendition.display(currentLocation.start.cfi);
+          } else {
+            // 如果获取不到位置，重新渲染当前章节
+            this.rendition.display();
+          }
+        }
+      } catch (error) {
+        console.error('Error during resize re-render:', error);
+      }
+    },
+    on_fullscreen_change: function () {
+      // 全屏状态变化时的处理
+      console.log('Fullscreen state changed');
+      // 强制重新渲染当前页面，解决全屏切换后卡住问题
+      try {
+        if (this.rendition && this.book) {
+          // 延迟一下，确保DOM已经更新
+          setTimeout(() => {
+            // 获取当前位置
+            const currentLocation = this.rendition.currentLocation();
+            if (currentLocation && currentLocation.start && currentLocation.start.cfi) {
+              // 重新渲染当前位置
+              this.rendition.display(currentLocation.start.cfi);
+            } else {
+              // 如果获取不到位置，重新渲染当前章节
+              this.rendition.display();
+            }
+          }, 200);
+        }
+      } catch (error) {
+        console.error('Error during fullscreen re-render:', error);
+      }
     },
     on_add_review: function (content) {
       const loc = this.comments_location
@@ -580,23 +685,6 @@ export default {
       })
     },
     on_location_changed: function (loc) {
-      // 注释掉阅读进度计算代码，因为不起作用
-      /*
-      // 使用epub.js的currentLocation()获取当前位置信息
-      const location = this.rendition.currentLocation();
-      
-      // 确保location和location.end存在，然后计算进度
-      if (location && location.end && location.end.percentage !== undefined) {
-        this.current_toc_progress = Math.round(location.end.percentage * 100) / 100 + '%';
-      } else {
-        // 备选方案：使用spine位置计算进度
-        const spineIndex = location.start.spinePos;
-        const totalSpines = this.book.spine.length;
-        const progress = totalSpines > 0 ? Math.round((spineIndex / totalSpines) * 10000) / 100 : 0;
-        this.current_toc_progress = progress + '%';
-      }
-      */
-
       // 只处理当前显示的章节，减少API请求
       const start = new ePub.CFI(loc.start);
       const contents_list = this.rendition.getContents();
@@ -615,6 +703,8 @@ export default {
               this.current_toc_title = toc.label;
               this.load_comments_summary(contents, toc);
             }
+            // 保存当前章节对象
+            this.current_toc = toc;
           }
         }
       }
@@ -769,6 +859,25 @@ export default {
       // 重置状态并重新加载电子书
       this.showTimeoutDialog = false;
       this.loading = true;
+      
+      // 清除之前的渲染器和事件监听器
+      if (this.rendition) {
+        // 移除所有事件监听器
+        this.rendition.off();
+        // 销毁渲染器
+        this.rendition.destroy();
+      }
+      
+      if (this.book) {
+        // 销毁书籍实例
+        this.book.destroy();
+      }
+      
+      // 清除阅读器容器内的内容
+      const readerContainer = document.getElementById('reader');
+      if (readerContainer) {
+        readerContainer.innerHTML = '';
+      }
       
       // 重新初始化并加载电子书
       this.book = ePub(this.book_url);
@@ -962,6 +1071,7 @@ export default {
     selected_location: {}, // 选中内容的位置
 
     current_toc_title: "",
+    current_toc: null, // 当前阅读的章节对象
     current_toc_progress: "",
 
     toolbar_left: -999,

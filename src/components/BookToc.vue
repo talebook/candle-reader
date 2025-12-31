@@ -1,5 +1,5 @@
 <template>
-        <v-list @click:select="click_toc">
+        <v-list @click:select="click_toc" ref="tocList">
             <v-list-group>
                 <template v-slot:activator="{ props }">
                     <v-list-item v-bind="props" title="书籍信息" ></v-list-item>
@@ -10,16 +10,22 @@
             <v-divider ></v-divider>
             <template v-for="(item, idx) in toc_items">
                 <v-list-item v-if="item.subitems.length == 0" prepend-icon="mdi-book-open-page-variant-outline"
-                    :title="item.label" :value="item.href"></v-list-item>
+                    :title="item.label" :value="item.href"
+                    :class="{ 'current-chapter': isCurrentChapter(item) }"
+                    ref="listItem"></v-list-item>
 
                 <v-list-group v-else :key="item.href">
                     <template v-slot:activator="{ props }">
                         <v-list-item v-bind="props" prepend-icon="mdi-book-open-page-variant-outline"
-                            :title="item.label" :value="item.href"></v-list-item>
+                            :title="item.label" :value="item.href"
+                            :class="{ 'current-chapter': isCurrentChapter(item) }"
+                            ref="listItem"></v-list-item>
                     </template>
 
-                    <v-list-item v-for="(subitem, subidx) in item.subitems" :key="item.href" :title="subitem.label"
-                        :value="subitem.href"></v-list-item>
+                    <v-list-item v-for="(subitem, subidx) in item.subitems" :key="subitem.href" :title="subitem.label"
+                        :value="subitem.href"
+                        :class="{ 'current-chapter': isCurrentChapter(subitem) }"
+                        ref="listItem"></v-list-item>
                 </v-list-group>
 
             </template>
@@ -43,7 +49,29 @@ export default {
             return items;
         }
     },
+    watch: {
+        // 当目录项或当前章节变化时，滚动到当前章节
+        toc_items: {
+            handler() {
+                this.$nextTick(() => {
+                    this.scrollToCurrentChapter();
+                });
+            },
+            deep: true
+        },
+        currentChapter: {
+            handler() {
+                this.$nextTick(() => {
+                    this.scrollToCurrentChapter();
+                });
+            }
+        }
+    },
     mounted: function () {
+        // 初始加载时滚动到当前章节
+        this.$nextTick(() => {
+            this.scrollToCurrentChapter();
+        });
     },
     methods: {
         click_toc: function (item) {
@@ -70,11 +98,50 @@ export default {
             }
             return translation[key]!== undefined? translation[key] : key;
         },
-
+        isCurrentChapter: function(item) {
+            // 检查是否是当前章节
+            if (!this.currentChapter) return false;
+            
+            // 更可靠的比较方式：只比较href，因为label可能会有细微差别
+            // 规范化href，去除可能的锚点
+            const normalizeHref = (href) => {
+                if (!href) return '';
+                return href.split('#')[0];
+            };
+            
+            const currentHref = normalizeHref(this.currentChapter.href);
+            const itemHref = normalizeHref(item.href);
+            
+            return currentHref === itemHref;
+        },
+        scrollToCurrentChapter: function() {
+            // 滚动到当前章节
+            if (!this.currentChapter) return;
+            
+            // 使用setTimeout确保DOM已经更新
+            setTimeout(() => {
+                // 直接查找带有current-chapter类的元素（更高效的方式）
+                const currentChapterElement = this.$el.querySelector('.current-chapter');
+                if (currentChapterElement) {
+                    // 滚动到元素顶部
+                    currentChapterElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' // 滚动到顶部位置
+                    });
+                }
+            }, 100);
+        }
     },
-    props: ["meta", "toc_items"],
+    props: ["meta", "toc_items", "currentChapter"],
     data: () => ({
     })
 }
-
 </script>
+
+<style scoped>
+.current-chapter {
+  background-color: rgba(63, 81, 181, 0.1) !important; /* 浅蓝色背景 */
+  border-left: 4px solid #3f51b5 !important; /* 左侧蓝色边框 */
+  font-weight: bold !important;
+}
+</style>
