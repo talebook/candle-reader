@@ -105,7 +105,7 @@
           {{ current_toc_title }}
         </div>
         <div id="status-bar-right" class="align-end">
-          {{ currentChapterIndex }}章/{{ totalChapters }}章 ({{ readingProgress }})
+           ({{ readingProgress }})
         </div>
       </div>
       <div id="reader"></div>
@@ -685,28 +685,40 @@ export default {
       })
     },
     on_location_changed: function (loc) {
-      // 只处理当前显示的章节，减少API请求
-      const start = new ePub.CFI(loc.start);
-      const contents_list = this.rendition.getContents();
-      const spine = this.book.spine.get(start.spinePos);
-      const found = contents_list.filter(c => { return c.cfiBase == spine.cfiBase })
-      if (found && found.length > 0) {
-        const contents = found[0];
-        const elem = contents.document.getElementsByTagName("p")[0];
-        if (elem) {
-          const target_cfi = new ePub.CFI(elem, spine.cfiBase)
-          const toc = this.find_toc(target_cfi, contents);
-          
-          if (toc) {
-            // 只有章节变化时才更新标题和加载评论
-            if (this.current_toc_title !== toc.label) {
+      // 处理当前显示的章节，确保章节标题正确更新
+      try {
+        // 使用当前位置的 CFI 直接查找章节
+        const startCFI = new ePub.CFI(loc.start);
+        const contents_list = this.rendition.getContents();
+        
+        // 遍历所有内容，找到匹配的内容项
+        for (const contents of contents_list) {
+          // 检查当前 CFI 是否属于这个内容项
+          try {
+            // 直接使用当前位置的 CFI 查找目录
+            const toc = this.find_toc(startCFI, contents);
+            
+            if (toc) {
+              // 无论章节标题是否变化，都强制更新
+              // 这是为了确保即使章节标题相同，也能正确更新状态
               this.current_toc_title = toc.label;
-              this.load_comments_summary(contents, toc);
+              this.current_toc = toc;
+              
+              // 只有当章节标题实际变化时，才重新加载评论
+              // 这是为了避免不必要的 API 请求
+              if (this.last_toc_label !== toc.label) {
+                this.load_comments_summary(contents, toc);
+                this.last_toc_label = toc.label;
+              }
+              break;
             }
-            // 保存当前章节对象
-            this.current_toc = toc;
+          } catch (error) {
+            // 忽略单个内容项的错误，继续尝试其他内容项
+            console.error('Error processing contents:', error);
           }
         }
+      } catch (error) {
+        console.error('Error in on_location_changed:', error);
       }
     },
     load_comments_summary: function (contents, toc) {
@@ -857,63 +869,69 @@ export default {
     },
     retryLoad: function() {
       // 重置状态并重新加载电子书
-      this.showTimeoutDialog = false;
-      this.loading = true;
-      
-      // 清除之前的渲染器和事件监听器
-      if (this.rendition) {
-        // 移除所有事件监听器
-        this.rendition.off();
-        // 销毁渲染器
-        this.rendition.destroy();
-      }
-      
-      if (this.book) {
-        // 销毁书籍实例
-        this.book.destroy();
-      }
-      
-      // 清除阅读器容器内的内容
-      const readerContainer = document.getElementById('reader');
-      if (readerContainer) {
-        readerContainer.innerHTML = '';
-      }
-      
-      // 重新初始化并加载电子书
-      this.book = ePub(this.book_url);
-      this.rendition = this.book.renderTo("reader", {
-        manager: "continuous",
-        flow: this.settings.flow,
-        width: "100%",
-        height: "100%",
-      });
-      
-      this.init_listeners();
-      this.init_themes();
-      
-      this.book.ready.then(() => {
-        const savedPosition = localStorage.getItem('lastReadPosition');
-        return this.rendition.display(savedPosition || this.display_url);
-      })
-      .then(() => {
+      try {
+        // 立即关闭对话框并显示加载覆盖层
+        this.showTimeoutDialog = false;
+        
+        // 确保覆盖层显示
+        setTimeout(() => {
+          this.loading = true;
+        }, 50);
+        
+        // 清除可能存在的旧定时器
         clearTimeout(this.loadingTimeout);
-        this.loading = false;
-      })
-      .catch(error => {
-        clearTimeout(this.loadingTimeout);
-        console.error('加载电子书失败:', error);
-        this.loading = false;
-        this.showTimeoutDialog = true;
-      })
-      
-      // 重新设置超时定时器
-      this.loadingTimeout = setTimeout(() => {
-        if (this.loading) {
-          console.warn('电子书加载超时，显示提示框');
+        
+        // 重新初始化并加载电子书
+        this.book = ePub(this.book_url);
+        this.rendition = this.book.renderTo("reader", {
+          manager: "continuous",
+          flow: this.settings.flow,
+          width: "100%",
+          height: "100%",
+        });
+        
+        this.init_listeners();
+        this.init_themes();
+        
+        // 重新设置超时定时器
+        this.loadingTimeout = setTimeout(() => {
+          if (this.loading) {
+            console.warn('电子书加载超时，显示提示框');
+            this.loading = false;
+            this.showTimeoutDialog = true;
+          }
+        }, 10000);
+        
+        // 使用 book_url 作为唯一标识，为每个书籍存储独立的阅读位置
+        const positionKey = `lastReadPosition_${this.book_url}`;
+        
+        this.book.ready.then(() => {
+          const savedPosition = localStorage.getItem(positionKey);
+          return this.rendition.display(savedPosition || this.display_url);
+        })
+        .then(() => {
+          clearTimeout(this.loadingTimeout);
+          // 确保覆盖层隐藏
+          this.loading = false;
+        })
+        .catch(error => {
+          clearTimeout(this.loadingTimeout);
+          console.error('加载电子书失败:', error);
+          // 确保覆盖层隐藏并显示错误对话框
           this.loading = false;
           this.showTimeoutDialog = true;
-        }
-      }, 10000);
+        });
+        
+        // 监听 relocated 事件，保存当前阅读位置，使用 book_url 作为唯一标识
+        this.rendition.on('relocated', (location) => {
+          localStorage.setItem(positionKey, location.start.cfi);
+        });
+      } catch (error) {
+        console.error('重试加载过程中出现错误:', error);
+        // 确保覆盖层隐藏并显示错误对话框
+        this.loading = false;
+        this.showTimeoutDialog = true;
+      }
     },
   },
   mounted: function () {
@@ -1000,12 +1018,16 @@ export default {
 
     this.init_listeners();
     this.init_themes();
+    
+    // 使用 book_url 作为唯一标识，为每个书籍存储独立的阅读位置
+    const positionKey = `lastReadPosition_${this.book_url}`;
+    
     this.rendition.on('relocated', (location) => {
-      localStorage.setItem('lastReadPosition', location.start.cfi);
+      localStorage.setItem(positionKey, location.start.cfi);
     });
 
     this.book.ready.then(() => {
-      const savedPosition = localStorage.getItem('lastReadPosition');
+      const savedPosition = localStorage.getItem(positionKey);
       return this.rendition.display(savedPosition || this.display_url);
     })
     .then(() => {
@@ -1073,6 +1095,7 @@ export default {
     current_toc_title: "",
     current_toc: null, // 当前阅读的章节对象
     current_toc_progress: "",
+    last_toc_label: "", // 上一次的章节标题，用于检测章节变化
 
     toolbar_left: -999,
     toolbar_top: 0,
