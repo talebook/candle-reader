@@ -105,7 +105,7 @@
           {{ current_toc_title }}
         </div>
         <div id="status-bar-right" class="align-end">
-          {{ currentChapterIndex }}章/{{ totalChapters }}章 ({{ readingProgress }})
+           ({{ readingProgress }})
         </div>
       </div>
       <div id="reader"></div>
