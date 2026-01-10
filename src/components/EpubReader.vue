@@ -272,6 +272,20 @@ export default {
         this.rendition.themes.fontSize(opt.font_size + 'px');
       }
       
+      // 应用行距和字符间距设置
+      if (opt.line_height !== undefined || opt.letter_spacing !== undefined) {
+        const lineHeight = opt.line_height !== undefined ? opt.line_height : this.settings.line_height;
+        const letterSpacing = opt.letter_spacing !== undefined ? opt.letter_spacing : this.settings.letter_spacing;
+        
+        this.rendition.themes.register('custom-style', {
+          body: {
+            'line-height': `${lineHeight} !important`,
+            'letter-spacing': `${letterSpacing}px !important`,
+          }
+        });
+        this.rendition.themes.select('custom-style');
+      }
+      
       this.save_settings();
     },
     on_click_toc: function (item) {
@@ -1034,10 +1048,19 @@ export default {
       clearTimeout(this.loadingTimeout);
       this.loading = false;
       
-      // 初始化亮度和字体大小设置
+      // 初始化亮度、字体大小、行距和字符间距设置
       const brightness = this.settings.brightness / 100;
       document.getElementById('reader').style.filter = `brightness(${brightness})`;
       this.rendition.themes.fontSize(this.settings.font_size + 'px');
+      
+      // 应用行距和字符间距设置
+      this.rendition.themes.register('custom-style', {
+        body: {
+          'line-height': `${this.settings.line_height} !important`,
+          'letter-spacing': `${this.settings.letter_spacing}px !important`,
+        }
+      });
+      this.rendition.themes.select('custom-style');
     })
     .catch(error => {
       clearTimeout(this.loadingTimeout);
@@ -1054,6 +1077,8 @@ export default {
       flow: "paginated",
       // flow: "scrolled",
       font_size: 18,
+      line_height: 1.5,
+      letter_spacing: 0,
       brightness: 100,
       theme: "white",
       theme_mode: "day",
