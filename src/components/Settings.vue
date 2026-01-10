@@ -36,6 +36,46 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
+                    <span>行距</span>
+                </v-col>
+                <v-col cols="2">
+                    <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("line_height", Math.max(1.0, opt.line_height - 0.1))'>-</v-btn>
+                </v-col>
+                <v-col cols="2" class="d-flex align-center justify-center">
+                    <span class="d-inline-blockx text-center">{{ opt.line_height.toFixed(1) }}</span>
+                </v-col>
+                <v-col cols="3">
+                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("line_height", Math.min(3.0, opt.line_height + 0.1))'>+</v-btn>
+                </v-col>
+                <v-col cols="3">
+                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("line_height", 1.5)'>默认</v-btn>
+                </v-col>
+            </v-row>
+        </v-list-item>
+
+        <v-list-item class="my-2">
+            <v-row class="align-center">
+                <v-col cols="2">
+                    <span>字间距</span>
+                </v-col>
+                <v-col cols="2">
+                    <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", Math.max(0, opt.letter_spacing - 1))'>-</v-btn>
+                </v-col>
+                <v-col cols="2" class="d-flex align-center justify-center">
+                    <span class="d-inline-blockx text-center">{{ opt.letter_spacing }}px</span>
+                </v-col>
+                <v-col cols="3">
+                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", Math.min(5, opt.letter_spacing + 1))'>+</v-btn>
+                </v-col>
+                <v-col cols="3">
+                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", 0)'>默认</v-btn>
+                </v-col>
+            </v-row>
+        </v-list-item>
+
+        <v-list-item class="my-2">
+            <v-row class="align-center">
+                <v-col cols="2">
                     <span>翻页</span>
                 </v-col>
                 <v-col cols="10">
@@ -124,6 +164,8 @@ export default {
             theme: this.settings?.theme || this.opt.theme,
             theme_mode: this.settings?.theme_mode || this.opt.theme_mode,
             font_size: this.settings?.font_size || this.opt.font_size,
+            line_height: this.settings?.line_height || this.opt.line_height,
+            letter_spacing: this.settings?.letter_spacing || this.opt.letter_spacing,
             brightness: this.settings?.brightness || this.opt.brightness,
             show_comments: this.settings?.show_comments ?? this.opt.show_comments
         };
@@ -159,6 +201,8 @@ export default {
             theme: "eyecare",
             theme_mode: "day",
             font_size: 18,
+            line_height: 1.5,
+            letter_spacing: 0,
             brightness: 100,
         },
         themes: [{
