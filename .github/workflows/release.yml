@@ -1,23 +1,61 @@
-# talebook/candle-reader: Build + Release dist (NO repository_dispatch)
+# talebook/candle-reader: Build + Release dist (only publish for tags; manual run picks the latest tag)
+# Behaviour:
+# - Triggered on tag push (refs/tags/v*) -> use that tag and create/upload release asset.
+# - Triggered manually (workflow_dispatch) -> pick the latest tag in the repository (by semver-like sort),
+#   and create/upload a release for that tag (if release already exists, upload asset to it).
+#
+# Notes:
+# - Ensure repository Actions permissions allow writing releases, or set a RELEASE_PAT secret (repo scope)
+#   and it will be used instead of the builtin GITHUB_TOKEN.
+# - The release asset uploaded is ./dist.zip (your build must produce dist/).
 on:
   push:
-    branches: [ main ]
     tags:
       - 'v*'
   workflow_dispatch:
+
+name: Build and release dist.zip (tag-only / manual latest-tag)
 
 permissions:
   contents: write
   packages: write
 
-name: Build and release dist.zip
+env:
+  ASSET_NAME: dist.zip
+  OWNER: talebook
+  REPO: candle-reader
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Determine tag to use
+        id: tag
+        run: |
+          set -e
+          # If triggered by a tag push, use that tag
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF##*/}"
+            echo "Using tag from push: ${TAG}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Otherwise (workflow_dispatch), choose the latest tag available locally (sorted by version-like order)
+          # ensure tags are fetched
+          git fetch --tags --prune
+          TAG=$(git tag --sort=-v:refname | head -n1 || true)
+          if [ -z "$TAG" ]; then
+            echo "No tags found in repository. Aborting."
+            exit 1
+          fi
+          echo "Using latest tag: ${TAG}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout (fetch tags)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -33,25 +71,74 @@ jobs:
       - name: Archive dist
         run: |
           if [ -d dist ]; then
-            rm -f dist.zip
-            zip -r dist.zip dist
+            rm -f ${ASSET_NAME}
+            zip -r ${ASSET_NAME} dist
           else
             echo "dist directory not found"
             exit 1
           fi
 
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: build-${{ github.run_number }}
+      - name: Ensure Release exists (get upload_url or create release)
+        id: ensure_release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          OWNER: ${{ env.OWNER }}
+          REPO: ${{ env.REPO }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -e
+          if [ -z "$API_TOKEN" ]; then
+            echo "No token available in secrets.RELEASE_PAT or GITHUB_TOKEN. Aborting."
+            exit 1
+          fi
+
+          echo "Checking if release for tag '$TAG' exists..."
+          # Query release by tag
+          HTTP_STATUS=$(curl -s -o /tmp/release.json -w "%{http_code}" \
+            -H "Authorization: token ${API_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${OWNER}/${REPO}/releases/tags/${TAG}")
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            UPLOAD_URL=$(jq -r '.upload_url' /tmp/release.json)
+            echo "Found existing release for ${TAG}"
+            echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ "$HTTP_STATUS" != "404" ]; then
+            echo "Unexpected response when checking release: HTTP ${HTTP_STATUS}"
+            cat /tmp/release.json || true
+            exit 1
+          fi
+
+          echo "Release for ${TAG} not found. Creating a release..."
+          # Create release
+          CREATE_RESPONSE=$(curl -s -H "Authorization: token ${API_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -X POST "https://api.github.com/repos/${OWNER}/${REPO}/releases" \
+            -d "{\"tag_name\":\"${TAG}\",\"name\":\"${TAG}\",\"draft\":false,\"prerelease\":false}")
+
+          # If API returned an error, show it
+          echo "$CREATE_RESPONSE" > /tmp/create.json
+          if echo "$CREATE_RESPONSE" | jq -e 'has("upload_url")' >/dev/null 2>&1; then
+            UPLOAD_URL=$(jq -r '.upload_url' /tmp/create.json)
+            echo "Created release for ${TAG}"
+            echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "Failed to create release, response:"
+            cat /tmp/create.json
+            exit 1
+          fi
 
       - name: Upload dist.zip to Release
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist.zip
-          asset_name: dist.zip
+          upload_url: ${{ steps.ensure_release.outputs.upload_url }}
+          asset_path: ./${{ env.ASSET_NAME }}
+          asset_name: ${{ env.ASSET_NAME }}
           asset_content_type: application/zip
+        env:
+          # Prefer using RELEASE_PAT (repo-scoped PAT placed in repo secrets) if set, otherwise use GITHUB_TOKEN
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
