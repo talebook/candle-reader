@@ -29,29 +29,6 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Determine tag to use
-        id: tag
-        run: |
-          set -e
-          # If triggered by a tag push, use that tag
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF##*/}"
-            echo "Using tag from push: ${TAG}"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Otherwise (workflow_dispatch), choose the latest tag available locally (sorted by version-like order)
-          # ensure tags are fetched
-          git fetch --tags --prune
-          TAG=$(git tag --sort=-v:refname | head -n1 || true)
-          if [ -z "$TAG" ]; then
-            echo "No tags found in repository. Aborting."
-            exit 1
-          fi
-          echo "Using latest tag: ${TAG}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
       - name: Checkout (fetch tags)
         uses: actions/checkout@v4
         with:
@@ -77,6 +54,29 @@ jobs:
             echo "dist directory not found"
             exit 1
           fi
+
+      - name: Determine tag to use
+        id: tag
+        run: |
+          set -e
+          # If triggered by a tag push, use that tag
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF##*/}"
+            echo "Using tag from push: ${TAG}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Otherwise (workflow_dispatch), choose the latest tag available locally (sorted by version-like order)
+          # ensure tags are fetched
+          git fetch --tags --prune
+          TAG=$(git tag --sort=-v:refname | head -n1 || true)
+          if [ -z "$TAG" ]; then
+            echo "No tags found in repository. Aborting."
+            exit 1
+          fi
+          echo "Using latest tag: ${TAG}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Ensure Release exists (get upload_url or create release)
         id: ensure_release
