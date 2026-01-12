@@ -4,7 +4,7 @@ all:
 install:
 	 rm ~/code/talebook/app/public/static/candle-reader/ -rf
 	 cp dist/ ~/code/talebook/app/public/static/candle-reader/ -rv
-	 cp dist/epubjs.html ~/code/talebook/webserver/resources/book/epubjs.html
+	 cp dist/talebook-template.html ~/code/talebook/webserver/resources/book/talebook-template.html
 
 dev:
 	p=public/demo/book1 && if [ ! -d "$$p" ] ; then mkdir -p "$$p"; unzip -o "$$p.epub" -d "$$p"; fi
