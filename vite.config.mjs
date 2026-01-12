@@ -18,14 +18,12 @@ export default defineConfig({
       fileName: (format) => `candle-reader.${format}.js`, // 输出文件名
     },
     rollupOptions: {
-      external: (id) => {
-        return /^\/public\/demo\//.test(id);
-      },
       output: {
         // 确保所有依赖都被打包到一个文件中
-        inlineDynamicImports: true, 
+        inlineDynamicImports: true,
       },
-    },  },
+    },
+  },
   plugins: [
     Vue({
       template: { transformAssetUrls }
