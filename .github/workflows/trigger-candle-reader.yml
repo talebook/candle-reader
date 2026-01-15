@@ -1,17 +1,21 @@
 name: Trigger Candle Reader Event
 
 on:
-  # 触发条件：当 'Build and release dist.zip' 工作流成功完成时
+  # 触发条件1：当 'Build and release dist.zip' 工作流成功完成时
   workflow_run:
     workflows: ["Build and release dist.zip"]
     types: [completed]
+  # 触发条件2：手动触发
+  workflow_dispatch:
 
 jobs:
   trigger-candle-reader:
-    # 仅在引用的工作流成功时才运行
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    
     runs-on: ubuntu-latest
+    
+    # 修改if条件：自动触发时需要检查是否成功，手动触发时无需检查
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
     
     # 环境变量 - 直接硬编码目标仓库信息
     env:
@@ -21,12 +25,25 @@ jobs:
     steps:
       - name: Trigger repository_dispatch event
         run: |
-          # 使用 GitHub CLI 触发 candle-reader 事件
+          # 准备触发信息
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            TRIGGER_SOURCE="自动触发 (来自工作流: ${{ github.event.workflow_run.name }})"
+            PAYLOAD='{"triggered_by":"${{ github.repository }}", "workflow_run_id":"${{ github.event.workflow_run.id }}", "timestamp":"${{ github.event.workflow_run.updated_at }}"}'
+          else
+            TRIGGER_SOURCE="手动触发"
+            PAYLOAD='{"triggered_by":"${{ github.repository }}", "trigger_type":"manual", "timestamp":"${{ github.event.created_at }}"}'
+          fi
+          
+          echo "🚀 开始触发 update-candle-reader 事件"
+          echo "📦 目标仓库: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}"
+          echo "🔧 触发方式: $TRIGGER_SOURCE"
+          
+          # 使用 GitHub CLI 触发 update-candle-reader 事件
           gh api \
             -X POST \
             /repos/${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}/dispatches \
             -f event_type='update-candle-reader' \
-            -f client_payload='{"triggered_by":"${{ github.repository }}", "workflow_run_id":"${{ github.event.workflow_run.id }}", "timestamp":"${{ github.event.workflow_run.updated_at }}"}'
+            -f client_payload="$PAYLOAD"
           
           echo "✅ 已成功触发 ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }} 的 update-candle-reader 事件"
         
