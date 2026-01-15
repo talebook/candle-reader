@@ -1,0 +1,35 @@
+name: Trigger Candle Reader Event
+
+on:
+  # 触发条件：当 'Build and release dist.zip' 工作流成功完成时
+  workflow_run:
+    workflows: ["Build and release dist.zip"]
+    types: [completed]
+
+jobs:
+  trigger-candle-reader:
+    # 仅在引用的工作流成功时才运行
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    runs-on: ubuntu-latest
+    
+    # 环境变量 - 直接硬编码目标仓库信息
+    env:
+      TARGET_OWNER: hehetoshang
+      TARGET_REPO: talebook
+    
+    steps:
+      - name: Trigger repository_dispatch event
+        run: |
+          # 使用 GitHub CLI 触发 candle-reader 事件
+          gh api \
+            -X POST \
+            /repos/${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}/dispatches \
+            -f event_type='update-candle-reader' \
+            -f client_payload='{"triggered_by":"${{ github.repository }}", "workflow_run_id":"${{ github.event.workflow_run.id }}", "timestamp":"${{ github.event.workflow_run.updated_at }}"}'
+          
+          echo "✅ 已成功触发 ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }} 的 update-candle-reader 事件"
+        
+        # 使用 GitHub Actions 自带的 token
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
