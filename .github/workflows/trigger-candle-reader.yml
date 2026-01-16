@@ -1,0 +1,52 @@
+name: Trigger Candle Reader Event
+
+on:
+  workflow_run:
+    workflows: ["Build and release dist.zip"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  trigger-candle-reader:
+    runs-on: ubuntu-latest
+    
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
+    
+    env:
+      TARGET_OWNER: talebook
+      TARGET_REPO: talebook
+    
+    steps:
+      - name: Trigger repository_dispatch event
+        env:
+          # 使用个人访问令牌 (PAT) 触发事件
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            TRIGGER_SOURCE="自动触发 (来自工作流: ${{ github.event.workflow_run.name }})"
+            # 直接在 gh api 命令中构建 JSON，不使用变量
+            gh api \
+              -X POST \
+              /repos/${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}/dispatches \
+              -f event_type='update-candle-reader' \
+              -f 'client_payload[triggered_by]=${{ github.repository }}' \
+              -f 'client_payload[workflow_run_id]=${{ github.event.workflow_run.id }}' \
+              -f 'client_payload[timestamp]=${{ github.event.workflow_run.updated_at }}'
+          else
+            TRIGGER_SOURCE="手动触发"
+            # 直接在 gh api 命令中构建 JSON，不使用变量
+            gh api \
+              -X POST \
+              /repos/${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}/dispatches \
+              -f event_type='update-candle-reader' \
+              -f 'client_payload[triggered_by]=${{ github.repository }}' \
+              -f 'client_payload[trigger_type]=manual' \
+              -f 'client_payload[timestamp]=${{ github.event.created_at }}'
+          fi
+          
+          echo "🚀 开始触发 update-candle-reader 事件"
+          echo "📦 目标仓库: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}"
+          echo "🔧 触发方式: $TRIGGER_SOURCE"
+          echo "✅ 已成功触发 ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }} 的 update-candle-reader 事件"

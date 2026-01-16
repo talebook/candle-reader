@@ -277,13 +277,13 @@ export default {
         const lineHeight = opt.line_height !== undefined ? opt.line_height : this.settings.line_height;
         const letterSpacing = opt.letter_spacing !== undefined ? opt.letter_spacing : this.settings.letter_spacing;
         
-        this.rendition.themes.register('custom-style', {
+        // 使用 themes.default() 方法直接应用自定义样式，这样会覆盖默认样式但不影响主题
+        this.rendition.themes.default({
           body: {
             'line-height': `${lineHeight} !important`,
             'letter-spacing': `${letterSpacing}px !important`,
           }
         });
-        this.rendition.themes.select('custom-style');
       }
       
       this.save_settings();
@@ -1053,14 +1053,13 @@ export default {
       document.getElementById('reader').style.filter = `brightness(${brightness})`;
       this.rendition.themes.fontSize(this.settings.font_size + 'px');
       
-      // 应用行距和字符间距设置
-      this.rendition.themes.register('custom-style', {
+      // 使用 themes.default() 方法直接应用自定义样式，这样会覆盖默认样式但不影响主题
+      this.rendition.themes.default({
         body: {
           'line-height': `${this.settings.line_height} !important`,
           'letter-spacing': `${this.settings.letter_spacing}px !important`,
         }
       });
-      this.rendition.themes.select('custom-style');
     })
     .catch(error => {
       clearTimeout(this.loadingTimeout);

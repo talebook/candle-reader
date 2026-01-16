@@ -39,13 +39,13 @@
                     <span>行距</span>
                 </v-col>
                 <v-col cols="2">
-                    <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("line_height", Math.max(1.0, opt.line_height - 0.1))'>-</v-btn>
+                    <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("line_height", opt.line_height - 0.1)'>-</v-btn>
                 </v-col>
                 <v-col cols="2" class="d-flex align-center justify-center">
                     <span class="d-inline-blockx text-center">{{ opt.line_height.toFixed(1) }}</span>
                 </v-col>
                 <v-col cols="3">
-                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("line_height", Math.min(3.0, opt.line_height + 0.1))'>+</v-btn>
+                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("line_height", opt.line_height + 0.1)'>+</v-btn>
                 </v-col>
                 <v-col cols="3">
                     <v-btn variant="outlined" density="comfortable" @click='set_and_emit("line_height", 1.5)'>默认</v-btn>
@@ -59,13 +59,13 @@
                     <span>字间距</span>
                 </v-col>
                 <v-col cols="2">
-                    <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", Math.max(0, opt.letter_spacing - 1))'>-</v-btn>
+                    <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", opt.letter_spacing - 1)'>-</v-btn>
                 </v-col>
                 <v-col cols="2" class="d-flex align-center justify-center">
                     <span class="d-inline-blockx text-center">{{ opt.letter_spacing }}px</span>
                 </v-col>
                 <v-col cols="3">
-                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", Math.min(5, opt.letter_spacing + 1))'>+</v-btn>
+                    <v-btn variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", opt.letter_spacing + 1)'>+</v-btn>
                 </v-col>
                 <v-col cols="3">
                     <v-btn variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", 0)'>默认</v-btn>
@@ -175,6 +175,12 @@ export default {
             // 为字体大小添加限制：最小12px，最大48px
             if (key === 'font_size') {
                 val = Math.max(12, Math.min(48, val));
+            } else if (key === 'letter_spacing') {
+                // 为字符间距添加限制：最小0px，最大20px
+                val = Math.max(0, Math.min(20, val));
+            } else if (key === 'line_height') {
+                // 为行距添加限制：最小1.0，最大3.0
+                val = Math.max(1.0, Math.min(3.0, val));
             }
             this.opt = {
                 ...this.opt,
