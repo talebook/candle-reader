@@ -26,20 +26,27 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_run" ]; then
             TRIGGER_SOURCE="自动触发 (来自工作流: ${{ github.event.workflow_run.name }})"
-            PAYLOAD='{"triggered_by":"${{ github.repository }}", "workflow_run_id":"${{ github.event.workflow_run.id }}", "timestamp":"${{ github.event.workflow_run.updated_at }}"}'
+            # 直接在 gh api 命令中构建 JSON，不使用变量
+            gh api \
+              -X POST \
+              /repos/${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}/dispatches \
+              -f event_type='update-candle-reader' \
+              -f 'client_payload[triggered_by]=${{ github.repository }}' \
+              -f 'client_payload[workflow_run_id]=${{ github.event.workflow_run.id }}' \
+              -f 'client_payload[timestamp]=${{ github.event.workflow_run.updated_at }}'
           else
             TRIGGER_SOURCE="手动触发"
-            PAYLOAD='{"triggered_by":"${{ github.repository }}", "trigger_type":"manual", "timestamp":"${{ github.event.created_at }}"}'
+            # 直接在 gh api 命令中构建 JSON，不使用变量
+            gh api \
+              -X POST \
+              /repos/${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}/dispatches \
+              -f event_type='update-candle-reader' \
+              -f 'client_payload[triggered_by]=${{ github.repository }}' \
+              -f 'client_payload[trigger_type]=manual' \
+              -f 'client_payload[timestamp]=${{ github.event.created_at }}'
           fi
           
           echo "🚀 开始触发 update-candle-reader 事件"
           echo "📦 目标仓库: ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}"
           echo "🔧 触发方式: $TRIGGER_SOURCE"
-          
-          gh api \
-            -X POST \
-            /repos/${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }}/dispatches \
-            -f event_type='update-candle-reader' \
-            -f client_payload="$PAYLOAD"
-          
           echo "✅ 已成功触发 ${{ env.TARGET_OWNER }}/${{ env.TARGET_REPO }} 的 update-candle-reader 事件"
