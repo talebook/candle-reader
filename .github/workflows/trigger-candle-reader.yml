@@ -20,9 +20,9 @@ jobs:
     
     steps:
       - name: Trigger repository_dispatch event
-        # 使用 with 传递 token
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 使用个人访问令牌 (PAT) 触发事件
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" == "workflow_run" ]; then
             TRIGGER_SOURCE="自动触发 (来自工作流: ${{ github.event.workflow_run.name }})"
