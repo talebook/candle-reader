@@ -15,7 +15,7 @@ jobs:
       github.event_name == 'workflow_dispatch'
     
     env:
-      TARGET_OWNER: hehetoshang
+      TARGET_OWNER: talebook
       TARGET_REPO: talebook
     
     steps:
