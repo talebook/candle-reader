@@ -67,7 +67,13 @@ const serverPlugin = {
                 })
                 .then(rsp => {
                     if (rsp.err === 'exception') {
-                        app.$store.commit("alert", { type: "error", msg: rsp.msg, to: null });
+                        // 检查 app.$store 是否存在，避免调用不存在的方法
+                        if (app.$store) {
+                            app.$store.commit("alert", { type: "error", msg: rsp.msg, to: null });
+                        } else {
+                            // 如果 store 不存在，使用 console.error 输出错误
+                            console.error('API 异常:', rsp.msg);
+                        }
                     }
                     return rsp;
                 })

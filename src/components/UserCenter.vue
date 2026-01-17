@@ -142,6 +142,10 @@ export default {
     editNickname: false,
     editPassword: false,
     checkLogout: false,
+    alert: {
+      msg: '',
+      type: ''
+    },
 
     newNickname: '',
     oldPassword: '',
