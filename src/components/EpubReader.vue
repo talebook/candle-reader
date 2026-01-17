@@ -278,8 +278,9 @@ export default {
         const letterSpacing = opt.letter_spacing !== undefined ? opt.letter_spacing : this.settings.letter_spacing;
         
         // 使用 themes.default() 方法直接应用自定义样式，这样会覆盖默认样式但不影响主题
+        // 增加选择器特异性，确保样式能覆盖EPUB内部的样式
         this.rendition.themes.default({
-          body: {
+          'body, body *': {
             'line-height': `${lineHeight} !important`,
             'letter-spacing': `${letterSpacing}px !important`,
           }
@@ -1054,8 +1055,9 @@ export default {
       this.rendition.themes.fontSize(this.settings.font_size + 'px');
       
       // 使用 themes.default() 方法直接应用自定义样式，这样会覆盖默认样式但不影响主题
+      // 增加选择器特异性，确保样式能覆盖EPUB内部的样式
       this.rendition.themes.default({
-        body: {
+        'body, body *': {
           'line-height': `${this.settings.line_height} !important`,
           'letter-spacing': `${this.settings.letter_spacing}px !important`,
         }
