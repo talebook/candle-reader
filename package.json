@@ -5,7 +5,9 @@
     "dev": "vite",
     "build": "vite build && rm -rf dist/demo dist/talebook-template.html",
     "preview": "vite preview",
-    "lint": "eslint . --fix --ignore-path .gitignore"
+    "lint": "eslint . --fix --ignore-path .gitignore",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
@@ -15,6 +17,7 @@
     "vuetify": "^3.6.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@vitejs/plugin-vue": "^5.0.5",
     "eslint": "^8.57.0",
     "eslint-config-standard": "^17.1.0",

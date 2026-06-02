@@ -27,3 +27,9 @@ book3
 guimi
 guimi2
 public/*.html
+
+# Playwright
+/test-results
+/playwright-report
+/blob-report
+/.playwright
