@@ -20,7 +20,7 @@ test('点击「设置」打开设置面板', async ({ page }) => {
   await gotoReader(page)
   await page.getByRole('button', { name: '设置' }).click()
   await expect(page.getByText('亮度')).toBeVisible()
-  await expect(page.getByText('翻页')).toBeVisible()
+  await expect(page.getByText('翻页', { exact: true })).toBeVisible()
 })
 
 test('点击「AI」打开开发中占位面板', async ({ page }) => {
