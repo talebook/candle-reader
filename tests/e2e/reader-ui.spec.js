@@ -2,7 +2,7 @@
 // 这些 UI 是静态模板，不依赖 epub 渲染，因此用例稳定。
 const { test, expect } = require('@playwright/test')
 const { setupApiMock } = require('./helpers/mock-api')
-const { gotoReader, readState, waitForBookReady } = require('./helpers/reader')
+const { gotoReader, readState } = require('./helpers/reader')
 
 test.beforeEach(async ({ page }) => {
   await setupApiMock(page) // 默认游客态
