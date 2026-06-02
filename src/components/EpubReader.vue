@@ -152,7 +152,7 @@ export default {
     totalChapters: function() {
       // 计算总章节数
       let count = 0;
-      
+
       function countChapters(tocArray) {
         for (const item of tocArray) {
           count++;
@@ -161,16 +161,16 @@ export default {
           }
         }
       }
-      
+
       countChapters(this.toc_items);
       return count;
     },
     currentChapterIndex: function() {
       // 获取当前章节索引
       if (!this.current_toc) return 0;
-      
+
       const allChapters = [];
-      
+
       function getAllChapters(tocArray) {
         for (const item of tocArray) {
           allChapters.push(item);
@@ -179,9 +179,9 @@ export default {
           }
         }
       }
-      
+
       getAllChapters(this.toc_items);
-      
+
       // 查找当前章节在数组中的索引
       for (let i = 0; i < allChapters.length; i++) {
         const chapter = allChapters[i];
@@ -190,7 +190,7 @@ export default {
           return i + 1; // 返回从1开始的索引
         }
       }
-      
+
       return 0;
     },
     readingProgress: function() {
@@ -232,7 +232,7 @@ export default {
       for (var k in this.menu.panels) {
         this.menu.panels[k] = (k == target);
       }
-      
+
       // 当打开目录时，延迟一下确保DOM更新，然后触发滚动
       if (target === 'toc') {
         setTimeout(() => {
@@ -260,23 +260,23 @@ export default {
       this.settings[theme_key] = this.settings.theme;
       this.rendition.themes.select(this.settings.theme);
       this.settings.app_theme = (mode == "day") ? "light" : "dark";
-      
+
       // 应用亮度设置
       if (opt.brightness !== undefined) {
         const brightness = opt.brightness / 100;
         document.getElementById('reader').style.filter = `brightness(${brightness})`;
       }
-      
+
       // 应用字体大小设置
       if (opt.font_size !== undefined) {
         this.rendition.themes.fontSize(opt.font_size + 'px');
       }
-      
+
       // 应用行距和字符间距设置
       if (opt.line_height !== undefined || opt.letter_spacing !== undefined) {
         const lineHeight = opt.line_height !== undefined ? opt.line_height : this.settings.line_height;
         const letterSpacing = opt.letter_spacing !== undefined ? opt.letter_spacing : this.settings.letter_spacing;
-        
+
         // 使用 themes.default() 方法直接应用自定义样式，这样会覆盖默认样式但不影响主题
         // 增加选择器特异性，确保样式能覆盖EPUB内部的样式
         this.rendition.themes.default({
@@ -286,7 +286,7 @@ export default {
           }
         });
       }
-      
+
       this.save_settings();
     },
     on_click_toc: function (item) {
@@ -340,17 +340,21 @@ export default {
       // 顶部&底部翻页在宽屏模式下不生效
       const is_mobile = width < this.wide_screen
       const N = is_mobile ? 3 : 5;
+      const is_keyboard_only = this.settings.paging_control === "keyboard_only";
+
       if ( x < width / N || (is_mobile && y < height / N)) {
         // 点击左侧，往前翻页
-        console.log("<- prev page")
-        this.rendition.prev();
+        if (!is_keyboard_only) {
+          this.rendition.prev();
+        }
       } else if (x > width * (N-1) / N || (is_mobile && y > height * (N-1) / N)) {
         // 点击右侧，往后翻页
-        console.log("-> next page")
-        this.rendition.next().then();
+        if (!is_keyboard_only) {
+          this.rendition.next().then();
+        }
       } else {
         // 点击中间，显示菜单
-        console.log("-- toggle menu")
+        console.log("-- toggle menu");
         this.menu.show_navbar = !this.menu.show_navbar;
       }
     },
@@ -695,7 +699,7 @@ export default {
 
         const target_cfi = new ePub.CFI(cfi)
         const toc = this.find_toc(target_cfi, contents, spine.href);
-        
+
         this.load_comments_summary(contents, toc);
       })
     },
@@ -705,20 +709,20 @@ export default {
         // 使用当前位置的 CFI 直接查找章节
         const startCFI = new ePub.CFI(loc.start);
         const contents_list = this.rendition.getContents();
-        
+
         // 遍历所有内容，找到匹配的内容项
         for (const contents of contents_list) {
           // 检查当前 CFI 是否属于这个内容项
           try {
             // 直接使用当前位置的 CFI 查找目录
             const toc = this.find_toc(startCFI, contents);
-            
+
             if (toc) {
               // 无论章节标题是否变化，都强制更新
               // 这是为了确保即使章节标题相同，也能正确更新状态
               this.current_toc_title = toc.label;
               this.current_toc = toc;
-              
+
               // 只有当章节标题实际变化时，才重新加载评论
               // 这是为了避免不必要的 API 请求
               if (this.last_toc_label !== toc.label) {
@@ -772,7 +776,7 @@ export default {
     },
     add_comment_icons: function (contents, toc) {
       console.log("添加评论图标和计数器：", toc.label.trim())
-      
+
       // 如果章评功能关闭，不添加图标
       if (!this.settings.show_comments) {
         return;
@@ -811,7 +815,7 @@ export default {
               currentNode = currentNode.nextSibling;
           }
       }
-      
+
       // 标记已渲染图标
       toc.icons_rendered = true;
     },
@@ -887,27 +891,28 @@ export default {
       try {
         // 立即关闭对话框并显示加载覆盖层
         this.showTimeoutDialog = false;
-        
+
         // 确保覆盖层显示
         setTimeout(() => {
           this.loading = true;
         }, 50);
-        
+
         // 清除可能存在的旧定时器
         clearTimeout(this.loadingTimeout);
-        
+
         // 重新初始化并加载电子书
         this.book = ePub(this.book_url);
+
         this.rendition = this.book.renderTo("reader", {
           manager: "continuous",
           flow: this.settings.flow,
           width: "100%",
           height: "100%",
         });
-        
+
         this.init_listeners();
         this.init_themes();
-        
+
         // 重新设置超时定时器
         this.loadingTimeout = setTimeout(() => {
           if (this.loading) {
@@ -916,10 +921,10 @@ export default {
             this.showTimeoutDialog = true;
           }
         }, 10000);
-        
+
         // 使用 book_url 作为唯一标识，为每个书籍存储独立的阅读位置
         const positionKey = `lastReadPosition_${this.book_url}`;
-        
+
         this.book.ready.then(() => {
           const savedPosition = localStorage.getItem(positionKey);
           return this.rendition.display(savedPosition || this.display_url);
@@ -936,7 +941,7 @@ export default {
           this.loading = false;
           this.showTimeoutDialog = true;
         });
-        
+
         // 监听 relocated 事件，保存当前阅读位置，使用 book_url 作为唯一标识
         this.rendition.on('relocated', (location) => {
           localStorage.setItem(positionKey, location.start.cfi);
@@ -964,7 +969,7 @@ export default {
     }
     this.is_debug_signal = this.debug;
     this.is_debug_click = this.debug;
-    
+
     // 添加加载超时机制，10秒后显示提示框
     this.loadingTimeout = setTimeout(() => {
       if (this.loading) {
@@ -1005,7 +1010,9 @@ export default {
       console.error('获取用户信息失败:', error);
     })
 
+
     this.book = ePub(this.book_url);
+
     this.rendition = this.book.renderTo("reader", {
       manager: "continuous",
       flow: this.settings.flow,
@@ -1042,10 +1049,10 @@ export default {
 
     this.init_listeners();
     this.init_themes();
-    
+
     // 使用 book_url 作为唯一标识，为每个书籍存储独立的阅读位置
     const positionKey = `lastReadPosition_${this.book_url}`;
-    
+
     this.rendition.on('relocated', (location) => {
       localStorage.setItem(positionKey, location.start.cfi);
     });
@@ -1057,12 +1064,12 @@ export default {
     .then(() => {
       clearTimeout(this.loadingTimeout);
       this.loading = false;
-      
+
       // 初始化亮度、字体大小、行距和字符间距设置
       const brightness = this.settings.brightness / 100;
       document.getElementById('reader').style.filter = `brightness(${brightness})`;
       this.rendition.themes.fontSize(this.settings.font_size + 'px');
-      
+
       // 使用 themes.default() 方法直接应用自定义样式，这样会覆盖默认样式但不影响主题
       // 增加选择器特异性，确保样式能覆盖EPUB内部的样式
       this.rendition.themes.default({
@@ -1096,6 +1103,7 @@ export default {
       theme_night: "grey",
       show_comments: true,
       app_theme: "light",
+      paging_control: "mouse_and_keyboard",
     },
 
     wide_screen: 1000, // 宽屏尺寸

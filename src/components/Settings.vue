@@ -87,6 +87,20 @@
             </v-row>
         </v-list-item>
 
+        <v-list-item class="my-2">
+            <v-row class="align-center">
+                <v-col cols="2">
+                    <span>翻页控制</span>
+                </v-col>
+                <v-col cols="10">
+                    <v-btn-group variant="outlined" divided density="compact">
+                        <v-btn :active="opt.paging_control == 'mouse_and_keyboard'" @click='set_and_emit("paging_control", "mouse_and_keyboard")'>鼠标+键盘</v-btn>
+                        <v-btn :active="opt.paging_control == 'keyboard_only'" @click='set_and_emit("paging_control", "keyboard_only")'>仅键盘</v-btn>
+                    </v-btn-group>
+                </v-col>
+            </v-row>
+        </v-list-item>
+
 
         <v-list-item class="my-2">
             <v-row class="align-center">
@@ -167,7 +181,8 @@ export default {
             line_height: this.settings?.line_height || this.opt.line_height,
             letter_spacing: this.settings?.letter_spacing || this.opt.letter_spacing,
             brightness: this.settings?.brightness || this.opt.brightness,
-            show_comments: this.settings?.show_comments ?? this.opt.show_comments
+            show_comments: this.settings?.show_comments ?? this.opt.show_comments,
+            paging_control: this.settings?.paging_control || this.opt.paging_control,
         };
     },
     methods: {
@@ -210,6 +225,7 @@ export default {
             line_height: 1.5,
             letter_spacing: 0,
             brightness: 100,
+            paging_control: "mouse_and_keyboard",
         },
         themes: [{
             name: "white",
