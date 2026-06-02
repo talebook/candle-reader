@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>candle-reader e2e harness</title>
+  <!-- 与生产 index.html 一致，epub.js 以全局脚本方式引入 -->
+  <script src="/js/epub-v0.3.88.js"></script>
+  <script type="module">
+    import { Reader } from "/src/main.js"
+    // server 指向本地同源，使所有 /api/** 请求都走同源、便于 Playwright route mock；
+    // book_url 用体积较小的 demo 书，确保阅读器能真实渲染。
+    new Reader('#app', {
+      debug: false,
+      themes_css: "/css/themes.css",
+      server: window.location.origin,
+      book_url: "/demo/book1.epub",
+    })
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+</html>
