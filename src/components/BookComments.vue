@@ -30,7 +30,7 @@
       </template>
     </v-list>
     <v-card-text class="my-2 py-0 px-2">
-      <v-btn @click="login = !login" variant=text style="width: 100%" v-if="!login">点击登录，发表评论</v-btn>
+      <v-btn @click="$emit('login')" variant=text style="width: 100%" v-if="!login">点击登录，发表评论</v-btn>
       <v-row v-else>
         <v-col cols=9>
           <v-text-field v-model="content" density="compact" single-line hide-details placeholder="爱书之人，维持良好的社区氛围"></v-text-field>

@@ -57,7 +57,7 @@
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.comments" contained  z-index="234">
       <book-comments :login="is_login" :comments="comments" @close="set_menu('hide')"
-        @add_review="on_add_review"></book-comments>
+        @login="set_menu('more')" @add_review="on_add_review"></book-comments>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.ai" contained z-index="234">
