@@ -120,7 +120,7 @@
     <v-dialog v-model="show_theme_dialog" max-width="520" scrollable :fullscreen="$vuetify.display.smAndDown">
       <v-card>
         <v-card-title class="d-flex align-center">
-          <span>阅读主题</span>
+          <span>阅读皮肤</span>
           <v-spacer></v-spacer>
           <v-btn icon="mdi-close" variant="text" density="compact" @click="show_theme_dialog = false"></v-btn>
         </v-card-title>

@@ -135,7 +135,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center" no-gutters>
                 <v-col cols="2">
-                    <span density="compact">主题</span>
+                    <span density="compact">皮肤</span>
                 </v-col>
                 <v-col v-for="item in quick_themes" :key="item.id" class="text-center">
                     <v-btn :active="opt.theme == item.id" density="compact" :icon="item.icon" :color="item.bg"
@@ -143,7 +143,7 @@
                 </v-col>
                 <v-col cols="3" class="text-right">
                     <v-btn variant="text" density="compact" size="small" append-icon="mdi-chevron-right"
-                        @click="$emit('open-themes')">更多主题</v-btn>
+                        @click="$emit('open-themes')">更多皮肤</v-btn>
                 </v-col>
             </v-row>
         </v-list-item>
