@@ -1,7 +1,9 @@
 <template>
   <v-app :theme="settings.theme" full-height density="compact">
     <!-- 顶部菜单 -->
-    <v-app-bar v-if="menu.show_navbar" density="compact">
+    <!-- color="background"：顶栏用皮肤底色（而非默认 surface），与隐藏顶栏时露出的根背景同色，
+         使 iOS 顶部状态栏/灵动岛采样到的颜色在显隐两态下都恒为主题底色，不随 appbar 翻白。 -->
+    <v-app-bar v-if="menu.show_navbar" density="compact" color="background">
       <template v-slot:prepend>
         <v-btn icon :title="is_debug_signal ? '返回首页' : '章评'"> <v-icon>{{ is_debug_signal ? 'mdi-arrow-left' : 'mdi-candle' }}</v-icon> </v-btn>
     </template>
