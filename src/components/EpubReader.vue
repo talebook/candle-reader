@@ -262,6 +262,9 @@ export default {
       // 外层容器背景图（image 皮肤按屏幕方向选竖/横版大图）
       this.apply_skin_background(t);
 
+      // 浏览器 UI 主题色（iOS Safari 顶部状态栏/灵动岛、Android 地址栏跟随主题底色）
+      this.apply_theme_color(t);
+
       // iframe 内：切换主题 class（solid 命中 themes.css），再叠加自定义样式
       if (this.rendition) {
         this.rendition.themes.select(t.id);
@@ -291,6 +294,14 @@ export default {
       this.apply_theme(t.id);
       this.save_settings();
       this.show_theme_dialog = false;
+    },
+    // 更新 <meta name="theme-color"> 为主题底色：iOS Safari 15+ / Android 浏览器据此给
+    // 顶部状态栏（含灵动岛区域）着色。meta 必须在 HTML 里静态声明（见 demo.html / index.html），
+    // 这里只改它的 content——Safari 在页面解析时判定着色，纯 JS 新插入的 meta 不会被重新读取。
+    apply_theme_color: function (t) {
+      t = t || getTheme(this.settings.theme);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', t.bg);
     },
     // 背景图铺在 #main（v-main）上：覆盖上/下状态栏与正文区域，整屏一张图连续衔接。
     // image 皮肤按屏幕方向选竖版/横版大图（cover）；正文 iframe 与状态栏透明后透出。
