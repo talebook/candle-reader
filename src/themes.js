@@ -53,6 +53,12 @@ export const THEMES = [
 ]
 
 // 按 id 取主题，找不到时回退到白色。
+// 正常情况下 id 都来自 THEMES，找不到属异常（如脏数据/拼写错误），打 error 便于排查。
 export function getTheme(id) {
-  return THEMES.find(t => t.id === id) || THEMES[0]
+  const theme = THEMES.find(t => t.id === id)
+  if (!theme) {
+    console.error(`[themes] 未找到主题 id="${id}"，已回退到「${THEMES[0].name}」`)
+    return THEMES[0]
+  }
+  return theme
 }
