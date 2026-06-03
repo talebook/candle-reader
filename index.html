@@ -7,6 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>秉烛夜读</title>
+  <!-- JSZip 必须在 epub.js 之前加载：epub.js 是 UMD 外部依赖写法，靠全局 window.JSZip 解压 .epub 压缩包 -->
+  <script src="/js/jszip-v3.10.1.min.js"></script>
   <script src="/js/epub-v0.3.88.js"></script>
   <script  type="module">
     import { Reader } from "/src/main.js"

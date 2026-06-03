@@ -4,19 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>candle-reader e2e harness</title>
-  <!-- 与生产 index.html 一致，epub.js 以全局脚本方式引入 -->
+  <!-- 与生产 index.html 一致：JSZip 必须在 epub.js 之前引入（epub.js 靠全局 window.JSZip 解压 .epub） -->
+  <script src="/js/jszip-v3.10.1.min.js"></script>
   <script src="/js/epub-v0.3.88.js"></script>
   <script type="module">
     import { Reader } from "/src/main.js"
     // server 指向本地同源，使所有 /api/** 请求都走同源、便于 Playwright route mock；
-    // book_url 指向「已解压的书目录」而非 .epub 压缩包：headless 下加载 zip（JSZip 异步解压）
-    // 正文 iframe 常渲染不完整，改用解压目录后能稳定渲染，使依赖正文渲染的用例（如皮肤对
-    // iframe color-scheme / 透明度的影响）可断言。
+    // book_url 用 .epub 压缩包，与生产从 talebook 服务取书一致；JSZip 就位后 headless 下可正常解压渲染。
     new Reader('#app', {
       debug: false,
       themes_css: "/css/themes.css",
       server: window.location.origin,
-      book_url: "/demo/book1/",
+      book_url: "/demo/book1.epub",
     })
   </script>
 </head>
