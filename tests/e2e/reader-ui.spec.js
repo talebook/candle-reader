@@ -2,7 +2,7 @@
 // 这些 UI 是静态模板，不依赖 epub 渲染，因此用例稳定。
 const { test, expect } = require('@playwright/test')
 const { setupApiMock } = require('./helpers/mock-api')
-const { gotoReader, readState } = require('./helpers/reader')
+const { gotoReader, readState, waitForReaderRendered } = require('./helpers/reader')
 
 test.beforeEach(async ({ page }) => {
   await setupApiMock(page) // 默认游客态
@@ -48,16 +48,19 @@ test('设置面板可调整字号', async ({ page }) => {
   expect(after.font_size).toBe(before.font_size + 2)
 })
 
-// 以下用例会调用 rendition.*（epub.js），headless 下渲染不完整，暂跳过待讨论。
-test.skip('设置面板可切换翻页模式 @epub', async ({ page }) => {
+// 以下用例会调用 rendition.*（epub.js）。harness 改用解压目录后正文可稳定渲染，
+// 先 waitForReaderRendered 再操作即可。
+test('设置面板可切换翻页模式 @epub', async ({ page }) => {
   await gotoReader(page)
+  await waitForReaderRendered(page)
   await page.getByRole('button', { name: '设置' }).click()
   await page.getByRole('button', { name: '上下滑动' }).click()
   await expect.poll(() => readState(page, 'settings').then(s => s.flow)).toBe('scrolled')
 })
 
-test.skip('点击主题按钮在白天/夜晚间切换 @epub', async ({ page }) => {
+test('点击主题按钮在白天/夜晚间切换 @epub', async ({ page }) => {
   await gotoReader(page)
+  await waitForReaderRendered(page)
   const before = await readState(page, 'settings').then(s => s.theme_mode)
   // 底部导航第二个按钮是主题切换（无 value，文案为 夜晚/白天）
   await page.getByRole('button', { name: /夜晚|白天/ }).click()

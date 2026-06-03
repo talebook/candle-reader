@@ -56,7 +56,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>字间距</span>
+                    <span>间距</span>
                 </v-col>
                 <v-col cols="2">
                     <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", opt.letter_spacing - 1)'>-</v-btn>
@@ -90,7 +90,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>翻页控制</span>
+                    <span>控制</span>
                 </v-col>
                 <v-col cols="10">
                     <v-btn-group variant="outlined" divided density="compact">
@@ -104,22 +104,6 @@
 
         <v-list-item class="my-2">
             <v-row class="align-center">
-                <v-col cols="2">
-                    <span>动画*</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.animation == 'none'">无动画</v-btn>
-                        <v-btn :active="opt.animation == 'swap'">平移</v-btn>
-                        <v-btn :active="opt.animation == 'paper'">仿真</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
-        </v-list-item>
-
-
-        <v-list-item class="my-2">
-            <v-row style="margin-bottom: 1px">
                 <v-col cols="2">
                     <span density="compact">章评*</span>
                 </v-col>
@@ -143,15 +127,10 @@
                 </v-col>
                 <v-col cols="3" class="text-right">
                     <v-btn variant="text" density="compact" size="small" append-icon="mdi-chevron-right"
-                        @click="$emit('open-themes')">更多皮肤</v-btn>
+                        @click="$emit('open-themes')">更多</v-btn>
                 </v-col>
             </v-row>
         </v-list-item>
-
-        <v-divider></v-divider>
-        <v-list-item class="my-2" title="带 * 号功能都在开发中"> 
-        </v-list-item>
-
 
 </v-list>
 </template>

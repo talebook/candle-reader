@@ -2,7 +2,8 @@
 // 后端接口全部通过路由拦截 mock，无需真实 talebook 服务。
 const { defineConfig, devices } = require('@playwright/test')
 
-const PORT = 5001
+// 默认 5001；本机若已有同名仓库占用该端口，可用 E2E_PORT 指向本仓库的 dev server。
+const PORT = process.env.E2E_PORT || 5001
 const BASE_URL = `http://localhost:${PORT}`
 
 module.exports = defineConfig({

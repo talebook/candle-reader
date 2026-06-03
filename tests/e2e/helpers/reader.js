@@ -49,4 +49,35 @@ async function openCommentsPanel(page, toc) {
   }, toc)
 }
 
-module.exports = { HARNESS_URL, gotoReader, openPanel, readState, openCommentsPanel }
+/**
+ * 等待正文 iframe 真正渲染完成（loading 结束且 #reader 内出现 iframe）。
+ * 用于依赖 epub.js 真实渲染的用例（如皮肤对 iframe 内 color-scheme/透明度的影响）。
+ * 解压目录加载下首屏渲染稳定，给足超时即可。
+ */
+async function waitForReaderRendered(page, timeout = 20000) {
+  await page.waitForFunction(() => {
+    const app = document.querySelector('#app') && document.querySelector('#app').__vue_app__
+    if (!app) return false
+    const epub = app._instance.subTree.component
+    const reader = document.getElementById('reader')
+    return epub.proxy.loading === false && !!(reader && reader.querySelector('iframe'))
+  }, null, { timeout })
+}
+
+/**
+ * 读取正文 iframe 内某元素的 computed 样式属性，便于断言皮肤注入到 iframe 的真实效果。
+ * 需先 waitForReaderRendered。
+ */
+async function readIframeStyle(page, selector, prop) {
+  return page.evaluate(({ selector, prop }) => {
+    const f = document.querySelector('#reader iframe')
+    const doc = f && f.contentDocument
+    if (!doc) return null
+    const el = selector === 'html' ? doc.documentElement
+      : selector === 'body' ? doc.body
+      : doc.querySelector(selector)
+    return el ? getComputedStyle(el)[prop] : null
+  }, { selector, prop })
+}
+
+module.exports = { HARNESS_URL, gotoReader, openPanel, readState, openCommentsPanel, waitForReaderRendered, readIframeStyle }

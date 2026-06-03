@@ -132,6 +132,10 @@
                 <div class="theme-card" :class="{ active: settings.theme === t.id }" :style="theme_card_style(t)"
                   @click="pick_theme(t)">
                   <span class="theme-sample" :style="{ color: t.text }">{{ t.sample }}</span>
+                  <!-- 小勾：标注当前白天/夜晚分别选用的皮肤（theme_day / theme_night），即日夜切换按钮的两端 -->
+                  <v-icon v-if="t.id === settings.theme_day || t.id === settings.theme_night"
+                    class="theme-check" size="18"
+                    :title="t.mode === 'day' ? '当前白天皮肤' : '当前夜晚皮肤'">mdi-check-circle</v-icon>
                   <span class="theme-badge" v-if="settings.theme === t.id">使用中</span>
                 </div>
                 <div class="theme-name">{{ t.name }}</div>
@@ -325,7 +329,13 @@ export default {
       if (t.type === 'image') {
         // 图片皮肤：html 和 body 都设透明，iframe 才能真正透出 #reader 上的背景图
         //（只设 body 透明时 iframe 仍会渲染成白色画布盖住背景，必须连 html 一起透明）。
-        rules['html'] = { 'background': 'transparent !important' };
+        // color-scheme 必须与外层 app 主题（夜=dark/昼=light）一致：否则夜间皮肤下
+        // Chrome 判定「深色页面里嵌了浅色内容」，会给 iframe 画布刷一层不透明的
+        // color-adjust 背景（表现为纯白），盖住 #reader 背景图——这正是夜间皮肤变白的根因。
+        rules['html'] = {
+          'background': 'transparent !important',
+          'color-scheme': t.mode === 'night' ? 'dark' : 'light',
+        };
         decl['background-color'] = 'transparent !important';
         decl['color'] = `${t.text} !important`;
       }
@@ -1256,6 +1266,11 @@ export default {
   position: absolute; left: 8px; bottom: 8px;
   background: #e5392f; color: #fff; font-size: 10px;
   padding: 1px 6px; border-radius: 3px;
+}
+.theme-check {
+  position: absolute; top: 6px; right: 6px;
+  color: #2e9b4e; /* mdi-check-circle 自带圆形，加白色描边在深/浅背景上都清晰 */
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95));
 }
 .theme-name { text-align: center; font-size: 13px; padding-top: 5px; }
 </style>
