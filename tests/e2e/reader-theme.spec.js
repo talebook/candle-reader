@@ -95,9 +95,20 @@ test.describe('图片皮肤 iframe 渲染回归', () => {
     })
     // 关键断言：color-scheme 跟随夜间模式为 dark —— 这是阻止白色 color-adjust 背景的开关
     expect(await readIframeStyle(page, 'html', 'colorScheme')).toBe('dark')
-    // 正文 html/body 透明，才能透出 #reader 背景图
+    // 正文 html/body 透明，才能透出 #main 背景图
     expect(await readIframeStyle(page, 'html', 'backgroundColor')).toBe('rgba(0, 0, 0, 0)')
     expect(await readIframeStyle(page, 'body', 'backgroundColor')).toBe('rgba(0, 0, 0, 0)')
+    // 背景图铺在 #main 上（覆盖上/下状态栏，连续衔接），而非 #reader；状态栏透明透出底图，不加特殊半透明底
+    const layout = await page.evaluate(() => ({
+      mainHasImg: getComputedStyle(document.getElementById('main')).backgroundImage.includes('url('),
+      readerImg: getComputedStyle(document.getElementById('reader')).backgroundImage,
+      topBarBg: getComputedStyle(document.getElementById('status-bar-top')).backgroundColor,
+      botBarBg: getComputedStyle(document.getElementById('status-bar-bottom')).backgroundColor,
+    }))
+    expect(layout.mainHasImg).toBe(true)
+    expect(layout.readerImg).toBe('none')
+    expect(layout.topBarBg).toBe('rgba(0, 0, 0, 0)')
+    expect(layout.botBarBg).toBe('rgba(0, 0, 0, 0)')
   })
 
   test('白天图片皮肤：iframe color-scheme=light 且正文背景透明', async ({ page }) => {

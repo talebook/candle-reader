@@ -178,11 +178,11 @@ export default {
       return isDayTheme ? "夜晚" : "白天";
     },
     status_bar_style: function () {
-      // 图片皮肤下状态栏跟随主题文字色 + 半透明底，保证可读；纯色主题交给 themes.css
+      // 图片皮肤下状态栏透明、仅跟随主题文字色，透出铺在 #main 上的背景图，
+      // 与正文区域同一张图连续衔接；纯色主题交给 themes.css。
       const t = getTheme(this.settings.theme);
       if (t.type !== 'image') return {};
-      const bg = t.mode === 'night' ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)';
-      return { color: t.text, backgroundColor: bg };
+      return { color: t.text, backgroundColor: 'transparent' };
     },
     // 「更多主题」窗口按白天/夜晚分区
     theme_groups: function () {
@@ -293,22 +293,23 @@ export default {
       this.save_settings();
       this.show_theme_dialog = false;
     },
-    // 给 #reader 外层容器铺背景图：image 皮肤按屏幕方向选竖版/横版大图（cover），iframe 透明后透出。
-    // （图放在主文档的 #reader 上，而非 iframe 内——iframe 在分栏模式下宽达数十万 px，背景会被拉伸失效。）
+    // 背景图铺在 #main（v-main）上：覆盖上/下状态栏与正文区域，整屏一张图连续衔接。
+    // image 皮肤按屏幕方向选竖版/横版大图（cover）；正文 iframe 与状态栏透明后透出。
+    // （图放在主文档而非 iframe 内——iframe 在分栏模式下宽达数十万 px，背景会被拉伸失效。）
     apply_skin_background: function (t) {
       t = t || getTheme(this.settings.theme);
-      const reader = document.getElementById('reader');
-      if (!reader) return;
+      const main = document.getElementById('main');
+      if (!main) return;
       if (t.type === 'image') {
         const img = (window.innerWidth >= window.innerHeight) ? t.landscape : t.portrait;
-        reader.style.backgroundColor = t.bg;
-        reader.style.backgroundImage = `linear-gradient(${t.mask}, ${t.mask}), url("${img}")`;
-        reader.style.backgroundSize = 'cover';
-        reader.style.backgroundPosition = 'center';
-        reader.style.backgroundRepeat = 'no-repeat';
+        main.style.backgroundColor = t.bg;
+        main.style.backgroundImage = `linear-gradient(${t.mask}, ${t.mask}), url("${img}")`;
+        main.style.backgroundSize = 'cover';
+        main.style.backgroundPosition = 'center';
+        main.style.backgroundRepeat = 'no-repeat';
       } else {
-        reader.style.backgroundColor = '';
-        reader.style.backgroundImage = '';
+        main.style.backgroundColor = '';
+        main.style.backgroundImage = '';
       }
     },
     // 通过 themes.default() 注入正文样式：行距/字距 +（仅 image 皮肤）正文透明 + 强制文字色。
@@ -381,10 +382,10 @@ export default {
       // 应用主题（含外层背景图、iframe 透明/文字色、行距字距）
       this.apply_theme(this.settings.theme);
 
-      // 应用亮度设置
+      // 应用亮度设置（作用于 #main，整屏含背景图与状态栏一起调光）
       if (opt.brightness !== undefined) {
         const brightness = opt.brightness / 100;
-        document.getElementById('reader').style.filter = `brightness(${brightness})`;
+        document.getElementById('main').style.filter = `brightness(${brightness})`;
       }
 
       // 应用字体大小设置
@@ -1171,7 +1172,7 @@ export default {
 
       // 初始化亮度、字体大小，并在正文渲染后再应用一次主题（确保背景图/透明/文字色就位）
       const brightness = this.settings.brightness / 100;
-      document.getElementById('reader').style.filter = `brightness(${brightness})`;
+      document.getElementById('main').style.filter = `brightness(${brightness})`;
       this.rendition.themes.fontSize(this.settings.font_size + 'px');
       this.apply_theme(this.settings.theme);
     })
