@@ -1,5 +1,5 @@
 <template>
-  <v-app :theme="settings.app_theme" full-height density="compact">
+  <v-app :theme="settings.theme" full-height density="compact">
     <!-- 顶部菜单 -->
     <v-app-bar v-if="menu.show_navbar" density="compact">
       <template v-slot:prepend>
@@ -258,7 +258,6 @@ export default {
       this.settings.theme = t.id;
       this.settings.theme_mode = t.mode;
       this.settings['theme_' + t.mode] = t.id;   // 记住该模式下最近选择
-      this.settings.app_theme = (t.mode === 'day') ? 'light' : 'dark';
 
       // 外层容器背景图（image 皮肤按屏幕方向选竖/横版大图）
       this.apply_skin_background(t);
@@ -1199,7 +1198,6 @@ export default {
       theme_day: "white",
       theme_night: "grey",
       show_comments: true,
-      app_theme: "light",
       paging_control: "mouse_and_keyboard",
     },
 
