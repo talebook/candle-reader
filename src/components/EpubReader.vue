@@ -27,12 +27,12 @@
         <span>设置</span>
       </v-btn>
 
-      <v-btn value="more" @click="set_menu('more')">
+      <v-btn value="more" @click="on_open_comments">
         <v-badge color="error" :content="unread_count" v-if="unread_count">
-          <v-icon>mdi-account-circle-outline</v-icon>
+          <v-icon>mdi-comment-text-multiple-outline</v-icon>
         </v-badge>
-        <v-icon v-else>mdi-account-circle-outline</v-icon>
-        <span>用户</span>
+        <v-icon v-else>mdi-comment-text-multiple-outline</v-icon>
+        <span>评论</span>
       </v-btn>
 
       <v-btn value="ai" @click="set_menu('ai')">
@@ -51,8 +51,19 @@
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
-      <guest v-if="!user" @login="on_login_user"></guest>
-      <user-center v-else :messages="comments" :user="user" @update="on_login_user" @logout="user=null"></user-center>
+      <book-review :user="user" :login="is_login" :comments="book_reviews" :sort="book_review_sort"
+        @close="set_menu('hide')" @login="show_login = true" @update:sort="on_change_book_review_sort"
+        @open-settings="show_user_center = true" @add="on_add_book_review"></book-review>
+    </v-bottom-sheet>
+
+    <!-- 游客点「点击登录」时弹出，复用 Guest -->
+    <v-dialog v-model="show_login" max-width="500" z-index="2999">
+      <guest @login="on_book_login"></guest>
+    </v-dialog>
+
+    <!-- 已登录点 ⚙️ 时弹出用户设置/互动消息，复用 UserCenter -->
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="show_user_center" contained z-index="234">
+      <user-center :messages="comments" :user="user" @update="on_login_user" @logout="on_book_logout"></user-center>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.comments" contained  z-index="234">
@@ -125,6 +136,7 @@ import BookToc from './BookToc.vue'
 import Guest from './Guest.vue'
 import UserCenter from './UserCenter.vue'
 import BookComments from './BookComments.vue'
+import BookReview from './BookReview.vue'
 
 export default {
   name: 'EpubReader',
@@ -133,7 +145,8 @@ export default {
     BookToc,
     Guest,
     UserCenter,
-    BookComments
+    BookComments,
+    BookReview
   },
   props: ['book_url', 'display_url', 'debug', 'themes_css'],
   computed: {
@@ -688,6 +701,64 @@ export default {
         console.log("add review rsp = ", rsp)
       });
     },
+    on_open_comments: function () {
+      this.set_menu('more');
+      this.load_book_reviews();
+    },
+    on_change_book_review_sort: function (sort) {
+      this.book_review_sort = sort;
+      this.load_book_reviews();
+    },
+    load_book_reviews: function () {
+      if (!this.book_id) return; // book_id 尚未就绪（依赖 metadata 解析）
+      const url = `/api/review/book/list?book_id=${this.book_id}&sort=${this.book_review_sort}`;
+      this.$backend(url).then(rsp => {
+        if (rsp.err == 'ok') {
+          this.book_reviews = rsp.data.list;
+        }
+      });
+    },
+    on_book_login: function (user_data) {
+      this.on_login_user(user_data);
+      this.show_login = false;
+    },
+    on_book_logout: function () {
+      this.user = null;
+      this.is_login = false;
+      this.show_user_center = false;
+    },
+    on_add_book_review: function (content) {
+      // 「本书评论」锚定到当前章开始：chapter_id 由 summary 回填，cfi 取本章首元素。
+      const toc = this.current_toc;
+      if (!toc) {
+        alert("请先打开任意章节再发表评论");
+        return;
+      }
+      const review = {
+        book_id: this.book_id,
+        chapter_name: toc.label.trim(),
+        chapter_id: toc.chapter_id,
+        segment_id: 0, // 0 表示整章级（非段评）
+        cfi: toc.cfi ? toc.cfi.toString() : "",
+        content: content,
+        type: 1,
+      }
+      console.log("add book review = ", review)
+
+      this.$backend('/api/review/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(review),
+      }).then(rsp => {
+        if (rsp.err == 'ok') {
+          this.book_reviews.push(rsp.data);
+          alert("评论成功")
+        }
+        console.log("add book review rsp = ", rsp)
+      });
+    },
     on_location_changed_old: function (loc) {
       // if (this.review_bid <= 0) return;
 
@@ -1132,6 +1203,10 @@ export default {
     theme_mode: "day",
     toc_items: [],
     comments: [],
+    book_reviews: [], // 本书评论 feed（来自 /api/review/book/list）
+    book_review_sort: 'latest', // 本书评论排序：latest | hot
+    show_login: false, // 登录对话框（评论面板「点击登录」）
+    show_user_center: false, // 用户设置弹层（评论面板 ⚙️）
     comments_location: {}, // 评论内容的位置
     selected_location: {}, // 选中内容的位置
 
