@@ -57,7 +57,7 @@
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
       <book-review :user="user" :login="is_login" :comments="book_reviews" :sort="book_review_sort"
         @close="set_menu('hide')" @login="show_login = true" @update:sort="on_change_book_review_sort"
-        @open-settings="show_user_center = true" @add="on_add_book_review"></book-review>
+        @open-settings="show_user_center = true" @add="on_add_book_review" @jump="on_jump_review"></book-review>
     </v-bottom-sheet>
 
     <!-- 游客点「点击登录」时弹出，复用 Guest -->
@@ -829,6 +829,12 @@ export default {
         console.log("add review rsp = ", rsp)
       });
     },
+    on_jump_review: function (cfi) {
+      // 跳转到评论对应的 epub 位置（cfi 可为真实 epubcfi 或章节 href），并收起面板
+      if (!cfi || !this.rendition) return;
+      this.rendition.display(cfi);
+      this.set_menu('hide');
+    },
     on_open_comments: function () {
       this.set_menu('more');
       this.load_book_reviews();
@@ -909,30 +915,23 @@ export default {
         const startCFI = new ePub.CFI(loc.start);
         const contents_list = this.rendition.getContents();
 
-        // 遍历所有内容，找到匹配的内容项
-        for (const contents of contents_list) {
-          // 检查当前 CFI 是否属于这个内容项
-          try {
-            // 直接使用当前位置的 CFI 查找目录
-            const toc = this.find_toc(startCFI, contents);
+        // 连续翻页模式下会同时渲染多章，必须取「视口起始章节」对应的 contents
+        // （loc.index 是该 section 的 spine 序号），否则会误用第一个渲染的 iframe，
+        // 导致 chapter_name 错位、summary 取到隔壁章。
+        const contents = contents_list.find(c => c.sectionIndex === loc.index);
+        if (!contents) {
+          return;
+        }
 
-            if (toc) {
-              // 无论章节标题是否变化，都强制更新
-              // 这是为了确保即使章节标题相同，也能正确更新状态
-              this.current_toc_title = toc.label;
-              this.current_toc = toc;
+        const toc = this.find_toc(startCFI, contents);
+        if (toc) {
+          this.current_toc_title = toc.label;
+          this.current_toc = toc;
 
-              // 只有当章节标题实际变化时，才重新加载评论
-              // 这是为了避免不必要的 API 请求
-              if (this.last_toc_label !== toc.label) {
-                this.load_comments_summary(contents, toc);
-                this.last_toc_label = toc.label;
-              }
-              break;
-            }
-          } catch (error) {
-            // 忽略单个内容项的错误，继续尝试其他内容项
-            console.error('Error processing contents:', error);
+          // 只有当章节标题实际变化时，才重新加载评论，避免不必要的 API 请求
+          if (this.last_toc_label !== toc.label) {
+            this.load_comments_summary(contents, toc);
+            this.last_toc_label = toc.label;
           }
         }
       } catch (error) {
@@ -1035,23 +1034,13 @@ export default {
       const count = state.reviewNum;
       const is_hot = state.is_hot ? "hot-comment" : "";
 
-      // 创建评论容器
+      // 创建评论气泡：气泡即容器，评论数作为内容天然居中
       const doc = contents.document;
       const commentContainer = doc.createElement("div");
       commentContainer.className = `comment-icon ${is_hot}`;
-      commentContainer.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-        ${count > 0 ? `<span class="comment-count">${count}</span>` : ''}
-      `;
+      commentContainer.innerHTML = `<span class="comment-count">${count}</span>`;
 
-      // 为段落添加相对定位，确保评论图标可以绝对定位
-      if (elem.style.position === '' || elem.style.position === 'static') {
-        elem.style.position = 'relative';
-      }
-
-      // 将评论组件添加到段落末尾
+      // 将评论组件添加到段落末尾（内联跟随文字）
       elem.appendChild(commentContainer);
 
       commentContainer.addEventListener('click', (event) => {
