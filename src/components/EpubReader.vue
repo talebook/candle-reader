@@ -1,5 +1,9 @@
 <template>
-  <v-app :theme="settings.app_theme" full-height density="compact">
+  <v-app :theme="settings.theme" full-height density="compact">
+    <!-- 底部安全区（home indicator）填充条：纯色，覆盖底部安全区为 foot 色（图片皮肤=底图下沿色）。
+         顶部安全区由 html/body 的 bgTop 着色；二者配合实现顶/底不同色。z-index 低于顶/底导航。 -->
+    <div id="safe-bottom" :style="{ backgroundColor: foot_color }"></div>
+
     <!-- 顶部菜单 -->
     <v-app-bar v-if="menu.show_navbar" density="compact">
       <template v-slot:prepend>
@@ -43,7 +47,7 @@
     </v-bottom-navigation>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.settings" contained persistent z-index="234">
-      <settings :settings="settings" @update="update_settings"></settings>
+      <settings :settings="settings" @update="update_settings" @open-themes="open_theme_dialog"></settings>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" contained close-on-content-click  z-index="234">
@@ -100,7 +104,7 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
-      <div id="status-bar-top" :class="settings.theme">
+      <div id="status-bar-top" :class="settings.theme" :style="status_bar_style">
         <div id="status-bar-left" class="align-start">
           {{ current_toc_title }}
         </div>
@@ -109,12 +113,42 @@
         </div>
       </div>
       <div id="reader"></div>
-      <div id="status-bar-bottom" :class="settings.theme">
+      <div id="status-bar-bottom" :class="settings.theme" :style="status_bar_style">
         <div class="progress-bar-container">
           <div class="progress-bar" :style="{ width: readingProgress }"></div>
         </div>
       </div>
     </v-main>
+
+    <!-- 「更多主题」二级窗口：放在顶层（不嵌在设置面板里），避免被顶/底栏遮挡；小屏全屏 -->
+    <v-dialog v-model="show_theme_dialog" max-width="520" scrollable :fullscreen="$vuetify.display.smAndDown">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <span>阅读皮肤</span>
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="text" density="compact" @click="show_theme_dialog = false"></v-btn>
+        </v-card-title>
+        <v-card-text>
+          <template v-for="group in theme_groups" :key="group.mode">
+            <div class="theme-group-label">{{ group.label }}</div>
+            <div class="theme-grid">
+              <div class="theme-cell" v-for="t in group.items" :key="t.id">
+                <div class="theme-card" :class="{ active: settings.theme === t.id }" :style="theme_card_style(t)"
+                  @click="pick_theme(t)">
+                  <span class="theme-sample" :style="{ color: t.text }">{{ t.sample }}</span>
+                  <!-- 小勾：标注当前白天/夜晚分别选用的皮肤（theme_day / theme_night），即日夜切换按钮的两端 -->
+                  <v-icon v-if="t.id === settings.theme_day || t.id === settings.theme_night"
+                    class="theme-check" size="18"
+                    :title="t.mode === 'day' ? '当前白天皮肤' : '当前夜晚皮肤'">mdi-check-circle</v-icon>
+                  <span class="theme-badge" v-if="settings.theme === t.id">使用中</span>
+                </div>
+                <div class="theme-name">{{ t.name }}</div>
+              </div>
+            </div>
+          </template>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
 
   </v-app>
 </template>
@@ -125,6 +159,7 @@ import BookToc from './BookToc.vue'
 import Guest from './Guest.vue'
 import UserCenter from './UserCenter.vue'
 import BookComments from './BookComments.vue'
+import { THEMES, getTheme } from '@/themes'
 
 export default {
   name: 'EpubReader',
@@ -138,16 +173,32 @@ export default {
   props: ['book_url', 'display_url', 'debug', 'themes_css'],
   computed: {
     switch_theme_icon: function () {
-      // 根据当前主题类型自动设置相反的切换按钮图标
-      // 前两个主题（white, eyecare）是白天主题，切换按钮应显示为切换至黑夜
-      // 后两个主题（grey, dark）是黑夜主题，切换按钮应显示为切换至白天
-      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
+      // 当前是白天主题则显示「切换到夜晚」的图标，反之亦然
+      const isDayTheme = getTheme(this.settings.theme).mode === 'day';
       return isDayTheme ? "mdi-weather-night" : "mdi-weather-sunny";
     },
     switch_theme_text: function () {
-      // 根据当前主题类型自动设置相反的切换按钮文本
-      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
+      const isDayTheme = getTheme(this.settings.theme).mode === 'day';
       return isDayTheme ? "夜晚" : "白天";
+    },
+    foot_color: function () {
+      // 底部安全区（home indicator）填充色：图片皮肤用 bgBottom（底图下沿色），否则回退 bg
+      const t = getTheme(this.settings.theme);
+      return t.bgBottom || t.bg;
+    },
+    status_bar_style: function () {
+      // 图片皮肤下状态栏透明、仅跟随主题文字色，透出铺在 #main 上的背景图，
+      // 与正文区域同一张图连续衔接；纯色主题交给 themes.css。
+      const t = getTheme(this.settings.theme);
+      if (t.type !== 'image') return {};
+      return { color: t.text, backgroundColor: 'transparent' };
+    },
+    // 「更多主题」窗口按白天/夜晚分区
+    theme_groups: function () {
+      return [
+        { mode: 'day', label: '白天', items: THEMES.filter(t => t.mode === 'day') },
+        { mode: 'night', label: '夜晚', items: THEMES.filter(t => t.mode === 'night') },
+      ];
     },
     totalChapters: function() {
       // 计算总章节数
@@ -202,20 +253,117 @@ export default {
   },
   methods: {
     switch_theme: function () {
-      const isDayTheme = ['white', 'eyecare'].includes(this.settings.theme);
-      if (isDayTheme) {
-        // 当前是白天主题，切换到黑夜主题
-        this.settings.app_theme = "dark"
-        this.settings.theme_mode = "night";
-        this.settings.theme = this.settings.theme_night || "grey";
-      } else {
-        // 当前是黑夜主题，切换到白天主题
-        this.settings.app_theme = "light"
-        this.settings.theme_mode = "day";
-        this.settings.theme = this.settings.theme_day || "white";
-      }
-      this.rendition.themes.select(this.settings.theme);
+      // 在「最近用过的白天主题」与「最近用过的夜晚主题」之间切换
+      const isDayTheme = getTheme(this.settings.theme).mode === 'day';
+      const next = isDayTheme
+        ? (this.settings.theme_night || "grey")
+        : (this.settings.theme_day || "white");
+      this.apply_theme(next);
       this.save_settings();
+    },
+    // 应用一套主题（按 id）。solid 走 themes.css 的 class；image 走外层背景图 + iframe 透明 + 文字色强制。
+    apply_theme: function (id) {
+      const t = getTheme(id);
+      this.settings.theme = t.id;
+      this.settings.theme_mode = t.mode;
+      this.settings['theme_' + t.mode] = t.id;   // 记住该模式下最近选择
+
+      // 外层容器背景图（image 皮肤按屏幕方向选竖/横版大图）
+      this.apply_skin_background(t);
+
+      // 浏览器 UI 主题色（iOS Safari 顶部状态栏/灵动岛、Android 地址栏跟随主题底色）
+      this.apply_theme_color(t);
+
+      // iframe 内：切换主题 class（solid 命中 themes.css），再叠加自定义样式
+      if (this.rendition) {
+        this.rendition.themes.select(t.id);
+        this.apply_custom_style(t);
+      }
+    },
+    // 「更多主题」卡片预览样式：图片皮肤用缩略图，纯色用背景色
+    theme_card_style: function (t) {
+      if (t.type === 'image') {
+        return {
+          backgroundColor: t.bg,
+          backgroundImage: `url(${t.thumb})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        };
+      }
+      return { backgroundColor: t.bg };
+    },
+    // 打开「更多主题」窗口：先关掉设置面板，避免弹窗被 Vuetify 全局栈压在低层（设置面板 z-index 仅 234），
+    // 关闭后弹窗成为唯一活动 overlay，获得默认高层级，从而盖过顶栏/底部导航。
+    open_theme_dialog: function () {
+      this.set_menu('hide');
+      this.$nextTick(() => { this.show_theme_dialog = true; });
+    },
+    // 在「更多主题」窗口里选定主题：应用并关闭窗口
+    pick_theme: function (t) {
+      this.apply_theme(t.id);
+      this.save_settings();
+      this.show_theme_dialog = false;
+    },
+    // 让 iOS 顶/底安全区（刘海/灵动岛、home indicator）跟随主题色。
+    // 关键：viewport-fit=cover 下安全区露出的是最底层 html/body 背景，且 iOS 只认
+    // background-COLOR（不渲染 gradient/image），故必须用纯色。html/body 设 bgTop（顶部色）；
+    // 底部若要不同色（图片皮肤 foot），由模板里的 #safe-bottom 固定填充条用纯色覆盖（见 foot_color）。
+    // 纯色皮肤不设 bgTop/bgBottom，回退到 bg。meta 用顶部色。
+    apply_theme_color: function (t) {
+      t = t || getTheme(this.settings.theme);
+      document.documentElement.style.backgroundColor = t.bgTop || t.bg;
+      document.body.style.backgroundColor = t.bgTop || t.bg;
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', t.bgTop || t.bg);
+    },
+    // 背景图铺在 #main（v-main）上：覆盖上/下状态栏与正文区域，整屏一张图连续衔接。
+    // image 皮肤按屏幕方向选竖版/横版大图（cover）；正文 iframe 与状态栏透明后透出。
+    // （图放在主文档而非 iframe 内——iframe 在分栏模式下宽达数十万 px，背景会被拉伸失效。）
+    apply_skin_background: function (t) {
+      t = t || getTheme(this.settings.theme);
+      const main = document.getElementById('main');
+      if (!main) return;
+      if (t.type === 'image') {
+        const img = (window.innerWidth >= window.innerHeight) ? t.landscape : t.portrait;
+        main.style.backgroundColor = t.bg;
+        main.style.backgroundImage = `linear-gradient(${t.mask}, ${t.mask}), url("${img}")`;
+        main.style.backgroundSize = 'cover';
+        main.style.backgroundPosition = 'center';
+        main.style.backgroundRepeat = 'no-repeat';
+      } else {
+        main.style.backgroundColor = '';
+        main.style.backgroundImage = '';
+      }
+    },
+    // 通过 themes.default() 注入正文样式：行距/字距 +（仅 image 皮肤）正文透明 + 强制文字色。
+    // 纯色主题保持「弱覆盖」：不强制 color/background，由 themes.css 的同名 class 处理（沿用旧行为）。
+    // 注意：epub.js 的 addStylesheetRules 是往同一 <style> 追加而非替换，多次切换会累积，
+    // 故每次先移除已注入的 default 规则节点，确保 image 皮肤的 !important 规则不会残留到 solid 主题。
+    apply_custom_style: function (t) {
+      t = t || getTheme(this.settings.theme);
+      this.rendition.getContents().forEach(c => {
+        const el = c.document && c.document.getElementById('epubjs-inserted-css-default');
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+      });
+      const decl = {
+        'line-height': `${this.settings.line_height} !important`,
+        'letter-spacing': `${this.settings.letter_spacing}px !important`,
+      };
+      const rules = { 'body, body *': decl };
+      if (t.type === 'image') {
+        // 图片皮肤：html 和 body 都设透明，iframe 才能真正透出 #reader 上的背景图
+        //（只设 body 透明时 iframe 仍会渲染成白色画布盖住背景，必须连 html 一起透明）。
+        // color-scheme 必须与外层 app 主题（夜=dark/昼=light）一致：否则夜间皮肤下
+        // Chrome 判定「深色页面里嵌了浅色内容」，会给 iframe 画布刷一层不透明的
+        // color-adjust 背景（表现为纯白），盖住 #reader 背景图——这正是夜间皮肤变白的根因。
+        rules['html'] = {
+          'background': 'transparent !important',
+          'color-scheme': t.mode === 'night' ? 'dark' : 'light',
+        };
+        decl['background-color'] = 'transparent !important';
+        decl['color'] = `${t.text} !important`;
+      }
+      this.rendition.themes.default(rules);
     },
     set_menu: function (target_menu_panel) {
       var target = target_menu_panel;
@@ -254,37 +402,18 @@ export default {
       for (const key in opt) {
         this.settings[key] = opt[key];
       }
-      // 更新主题设定
-      const mode = opt["theme_mode"];
-      const theme_key = "theme_" + mode;
-      this.settings[theme_key] = this.settings.theme;
-      this.rendition.themes.select(this.settings.theme);
-      this.settings.app_theme = (mode == "day") ? "light" : "dark";
+      // 应用主题（含外层背景图、iframe 透明/文字色、行距字距）
+      this.apply_theme(this.settings.theme);
 
-      // 应用亮度设置
+      // 应用亮度设置（作用于 #main，整屏含背景图与状态栏一起调光）
       if (opt.brightness !== undefined) {
         const brightness = opt.brightness / 100;
-        document.getElementById('reader').style.filter = `brightness(${brightness})`;
+        document.getElementById('main').style.filter = `brightness(${brightness})`;
       }
 
       // 应用字体大小设置
       if (opt.font_size !== undefined) {
         this.rendition.themes.fontSize(opt.font_size + 'px');
-      }
-
-      // 应用行距和字符间距设置
-      if (opt.line_height !== undefined || opt.letter_spacing !== undefined) {
-        const lineHeight = opt.line_height !== undefined ? opt.line_height : this.settings.line_height;
-        const letterSpacing = opt.letter_spacing !== undefined ? opt.letter_spacing : this.settings.letter_spacing;
-
-        // 使用 themes.default() 方法直接应用自定义样式，这样会覆盖默认样式但不影响主题
-        // 增加选择器特异性，确保样式能覆盖EPUB内部的样式
-        this.rendition.themes.default({
-          'body, body *': {
-            'line-height': `${lineHeight} !important`,
-            'letter-spacing': `${letterSpacing}px !important`,
-          }
-        });
       }
 
       this.save_settings();
@@ -611,16 +740,15 @@ export default {
 
     init_themes: function () {
       console.log("load themes from:", this.themes_css)
-      this.rendition.themes.register("white", this.themes_css);
-      this.rendition.themes.register("dark", this.themes_css);
-      this.rendition.themes.register("grey", this.themes_css);
-      this.rendition.themes.register("brown", this.themes_css);
-      this.rendition.themes.register("eyecare", this.themes_css);
-      this.rendition.themes.select(this.settings.theme);
+      // 注册所有主题 id（纯色命中 themes.css 的同名 class；图片皮肤的样式由 apply_theme 动态注入）
+      THEMES.forEach(t => this.rendition.themes.register(t.id, this.themes_css));
+      this.apply_theme(this.settings.theme);
     },
     on_resized: function () {
       // 渲染器大小调整完成后的处理
       console.log('Reader resized');
+      // 横竖屏/窗口尺寸变化时，图片皮肤切换竖版/横版大图
+      this.apply_skin_background();
       // 强制重新渲染当前页面，解决缩放后卡住问题
       try {
         if (this.rendition && this.book) {
@@ -1065,19 +1193,11 @@ export default {
       clearTimeout(this.loadingTimeout);
       this.loading = false;
 
-      // 初始化亮度、字体大小、行距和字符间距设置
+      // 初始化亮度、字体大小，并在正文渲染后再应用一次主题（确保背景图/透明/文字色就位）
       const brightness = this.settings.brightness / 100;
-      document.getElementById('reader').style.filter = `brightness(${brightness})`;
+      document.getElementById('main').style.filter = `brightness(${brightness})`;
       this.rendition.themes.fontSize(this.settings.font_size + 'px');
-
-      // 使用 themes.default() 方法直接应用自定义样式，这样会覆盖默认样式但不影响主题
-      // 增加选择器特异性，确保样式能覆盖EPUB内部的样式
-      this.rendition.themes.default({
-        'body, body *': {
-          'line-height': `${this.settings.line_height} !important`,
-          'letter-spacing': `${this.settings.letter_spacing}px !important`,
-        }
-      });
+      this.apply_theme(this.settings.theme);
     })
     .catch(error => {
       clearTimeout(this.loadingTimeout);
@@ -1102,7 +1222,6 @@ export default {
       theme_day: "white",
       theme_night: "grey",
       show_comments: true,
-      app_theme: "light",
       paging_control: "mouse_and_keyboard",
     },
 
@@ -1149,9 +1268,35 @@ export default {
     is_handlering_selected_content: false,
     check_if_selected_content: false,
     showTimeoutDialog: false,
+    show_theme_dialog: false,
   })
 }
 </script>
+
+<style scoped>
+.theme-group-label { font-size: 13px; color: #888; margin: 4px 0 8px; }
+.theme-group-label:not(:first-child) { margin-top: 16px; }
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.theme-card {
+  position: relative; height: 84px; border-radius: 10px; padding: 10px;
+  box-sizing: border-box; cursor: pointer; overflow: hidden;
+  background-size: cover; background-position: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.theme-card.active { outline: 2px solid #e5392f; }
+.theme-sample { font-size: 13px; line-height: 1.4; }
+.theme-badge {
+  position: absolute; left: 8px; bottom: 8px;
+  background: #e5392f; color: #fff; font-size: 10px;
+  padding: 1px 6px; border-radius: 3px;
+}
+.theme-check {
+  position: absolute; top: 6px; right: 6px;
+  color: #2e9b4e; /* mdi-check-circle 自带圆形，加白色描边在深/浅背景上都清晰 */
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95));
+}
+.theme-name { text-align: center; font-size: 13px; padding-top: 5px; }
+</style>
 
 <style>
 .dot {
@@ -1228,5 +1373,28 @@ export default {
 
 .fixed {
   position: fixed !important;
+}
+
+/* 底部安全区填充条：仅占 home indicator 那条（无安全区设备高度为 0，不可见）。
+   纯色 background（iOS 安全区只认 background-color）。z-index 低于底部导航(1004)，
+   导航显示时被其覆盖、隐藏(display:none)时露出 foot 色，与底图下沿衔接。 */
+#safe-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* 底部安全区（home indicator）填充：背景色由 :style 的 foot_color 提供（图片皮肤=底图下沿色）。
+     不设 z-index，按 DOM 顺序排在 #main 之前 → 被正文/底图盖住，仅 #main 未铺到的 home indicator
+     那条露出 foot 色，故不遮挡正文。给足够高度以适配各机型安全区（多余部分被 #main 盖住不可见）。
+     底部导航(z 1004)显示时盖住此条，隐藏(display:none)时露出 foot 色。 */
+  height: 160px;
+  pointer-events: none;
+}
+
+/* 隐藏底部导航时（非 active）直接移除：Vuetify 默认只是 translateY 下移，但在 iOS
+   （viewport-fit=cover）下其 position:fixed;bottom:0 的背景仍留在 home indicator 安全区，
+   表现为底部残留 surface 深绿。display:none 彻底移除，使底部安全区露出 body 的主题底色。 */
+.v-bottom-navigation:not(.v-bottom-navigation--active) {
+  display: none !important;
 }
 </style>
