@@ -3,10 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/candle-reader.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes">
+  <!-- 顶部状态栏/灵动岛着色：运行时由 EpubReader.apply_theme_color 按主题改 content（须静态声明）。 -->
+  <meta name="theme-color" content="#F6F6F6" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>秉烛夜读</title>
+  <!-- JSZip 必须在 epub.js 之前加载：epub.js 是 UMD 外部依赖写法，靠全局 window.JSZip 解压 .epub 压缩包 -->
+  <script src="/js/jszip-v3.10.1.min.js"></script>
   <script src="/js/epub-v0.3.88.js"></script>
   <script  type="module">
     import { Reader } from "/src/main.js"

@@ -56,7 +56,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>字间距</span>
+                    <span>间距</span>
                 </v-col>
                 <v-col cols="2">
                     <v-btn class="text-justify" variant="outlined" density="comfortable" @click='set_and_emit("letter_spacing", opt.letter_spacing - 1)'>-</v-btn>
@@ -90,7 +90,7 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>翻页控制</span>
+                    <span>控制</span>
                 </v-col>
                 <v-col cols="10">
                     <v-btn-group variant="outlined" divided density="compact">
@@ -105,37 +105,6 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
-                    <span>动画*</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.animation == 'none'">无动画</v-btn>
-                        <v-btn :active="opt.animation == 'swap'">平移</v-btn>
-                        <v-btn :active="opt.animation == 'paper'">仿真</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
-        </v-list-item>
-
-
-        <v-list-item class="my-2">
-            <v-row class="align-center">
-                <v-col cols="2">
-                    <span>背景*</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.background == 'p0'">主题图0</v-btn>
-                        <v-btn :active="opt.background == 'p1'">主题图1</v-btn>
-                        <v-btn :active="opt.background == 'p2'">主题图2</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
-        </v-list-item>
-
-        <v-list-item class="my-2">
-            <v-row style="margin-bottom: 1px">
-                <v-col cols="2">
                     <span density="compact">章评*</span>
                 </v-col>
                 <v-col cols="10">
@@ -148,29 +117,35 @@
         </v-list-item>
 
         <v-list-item class="my-2">
-            <v-row style="margin-bottom: 1px">
+            <v-row class="align-center" no-gutters>
                 <v-col cols="2">
-                    <span density="compact">主题</span>
+                    <span density="compact">皮肤</span>
                 </v-col>
-                <v-col cols="2" v-for="item in themes">
-                    <v-btn :active="opt.theme == item.name" density="compact" :icon="item.icon" :color="item.color"
-                        @click='set_theme_and_emit(item.name, item.mode)'></v-btn>
+                <v-col v-for="item in quick_themes" :key="item.id" class="text-center">
+                    <v-btn :active="opt.theme == item.id" density="compact" :icon="item.icon" :color="item.bg"
+                        @click='set_theme_and_emit(item.id, item.mode)'></v-btn>
+                </v-col>
+                <v-col cols="3" class="text-right">
+                    <v-btn variant="text" density="compact" size="small" append-icon="mdi-chevron-right"
+                        @click="$emit('open-themes')">更多</v-btn>
                 </v-col>
             </v-row>
         </v-list-item>
-
-        <v-divider></v-divider>
-        <v-list-item class="my-2" title="带 * 号功能都在开发中"> 
-        </v-list-item>
-
 
 </v-list>
 </template>
 
 <script>
+import { THEMES } from '@/themes'
+
 export default {
     name: 'Settings',
+    emits: ['update', 'open-themes'],
     computed: {
+        // 设置面板里的 4 个快捷图标（纯色主题）
+        quick_themes: function () {
+            return this.themes.filter(t => t.type === 'solid')
+        },
     },
     mounted: function () {
         this.opt = {
@@ -203,17 +178,15 @@ export default {
             };
             this.$emit("update", { ...this.opt });
         },
-        set_theme_and_emit: function(name, mode) {
-            // 设置主题，并根据主题类型自动设置相反的主题模式
-            // 前两个主题（white, eyecare）是白天主题，切换按钮应显示为切换至黑夜
-            // 后两个主题（grey, dark）是黑夜主题，切换按钮应显示为切换至白天
+        set_theme_and_emit: function(id, mode) {
+            // 选中某套主题（id 唯一），并记录其对应的白天/夜晚模式
             this.opt = {
                 ...this.opt,
-                theme: name,
+                theme: id,
                 theme_mode: mode
             };
             this.$emit("update", { ...this.opt });
-        }
+        },
     },
     props: ['settings'],
     data: () => ({
@@ -227,27 +200,7 @@ export default {
             brightness: 100,
             paging_control: "mouse_and_keyboard",
         },
-        themes: [{
-            name: "white",
-            mode: "day",
-            color: '#F6F6F6',
-            icon: "mdi-weather-sunny",
-        }, {
-            name: "eyecare",
-            mode: "day",
-            color: '#D3E3D3',
-            icon: "mdi-eye",
-        }, {
-            name: "grey",
-            mode: "night",
-            color: '#4B4B4B',
-            icon: "mdi-weather-night",
-        }, {
-            name: "dark",
-            mode: "night",
-            color: '#1A1A1A',
-            icon: "mdi-candle",
-        } ],
+        themes: THEMES,
     })
 }
 
