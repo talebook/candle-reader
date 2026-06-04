@@ -9,6 +9,8 @@
 //   bg      背景底色（solid=正文底色；image=大图加载前/留边的底色，也决定整体明暗）
 //   surface Vuetify 面板色：同色系、比 bg 更浓一档，用于卡片/底部弹窗/顶栏/底部导航等组件底色
 //           （由 plugins/vuetify.js 据此为每个皮肤生成一套主题；文字对比色交给 Vuetify 自动推导）
+//   bgTop/bgBottom  顶/底安全区颜色（iOS 刘海、home indicator）。图片皮肤设成背景图上/下沿色
+//           （已按 mask 叠加估算），使安全区与底图衔接；纯色皮肤不填，回退到 bg
 //   icon    设置面板里快捷图标按钮用的 mdi 图标（type=solid）
 //   thumb     选择卡片用的小缩略图（type=image）
 //   portrait  手机竖版阅读大图（type=image）
@@ -30,24 +32,28 @@ export const THEMES = [
   // —— 背景图皮肤（每套三图：缩略图 / 竖版 / 横版）——
   { id: 'zhulin',    name: '竹林清风', type: 'image', mode: 'day',
     bg: '#eef5e4', surface: '#dbe9c6', text: '#33472f', mask: 'rgba(255,255,255,0.20)',
+    bgTop: '#e9f2db', bgBottom: '#d9e8c3',
     thumb: '/themes/skins/zhulin-thumb.svg',
     portrait: '/themes/skins/zhulin-portrait.svg',
     landscape: '/themes/skins/zhulin-landscape.svg',
     sample: '看花饮美酒，听鸟临晴山' },
   { id: 'parchment', name: '故纸堆',   type: 'image', mode: 'day',
     bg: '#f7efd9', surface: '#ebdcb4', text: '#5a3b1a', mask: 'rgba(252,246,232,0.20)',
+    bgTop: '#f8f0dc', bgBottom: '#edddb7',
     thumb: '/themes/skins/parchment-thumb.svg',
     portrait: '/themes/skins/parchment-portrait.svg',
     landscape: '/themes/skins/parchment-landscape.svg',
     sample: '旧纸新墨，字里春秋' },
   { id: 'huitu',     name: '灰土',     type: 'image', mode: 'night',
     bg: '#211e1a', surface: '#36302a', text: '#cfcabf', mask: 'rgba(20,18,15,0.30)',
+    bgTop: '#2e2922', bgBottom: '#13100c',
     thumb: '/themes/skins/huitu-thumb.svg',
     portrait: '/themes/skins/huitu-portrait.svg',
     landscape: '/themes/skins/huitu-landscape.svg',
     sample: '荒土残阳，独行天地间' },
   { id: 'xingye',    name: '星夜',     type: 'image', mode: 'night',
     bg: '#101730', surface: '#1d2a52', text: '#cdd6e6', mask: 'rgba(12,16,32,0.28)',
+    bgTop: '#161e37', bgBottom: '#080c1c',
     thumb: '/themes/skins/xingye-thumb.svg',
     portrait: '/themes/skins/xingye-portrait.svg',
     landscape: '/themes/skins/xingye-landscape.svg',

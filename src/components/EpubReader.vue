@@ -1,5 +1,9 @@
 <template>
   <v-app :theme="settings.theme" full-height density="compact">
+    <!-- 底部安全区（home indicator）填充条：纯色，覆盖底部安全区为 foot 色（图片皮肤=底图下沿色）。
+         顶部安全区由 html/body 的 bgTop 着色；二者配合实现顶/底不同色。z-index 低于顶/底导航。 -->
+    <div id="safe-bottom" :style="{ backgroundColor: foot_color }"></div>
+
     <!-- 顶部菜单 -->
     <v-app-bar v-if="menu.show_navbar" density="compact">
       <template v-slot:prepend>
@@ -177,6 +181,11 @@ export default {
       const isDayTheme = getTheme(this.settings.theme).mode === 'day';
       return isDayTheme ? "夜晚" : "白天";
     },
+    foot_color: function () {
+      // 底部安全区（home indicator）填充色：图片皮肤用 bgBottom（底图下沿色），否则回退 bg
+      const t = getTheme(this.settings.theme);
+      return t.bgBottom || t.bg;
+    },
     status_bar_style: function () {
       // 图片皮肤下状态栏透明、仅跟随主题文字色，透出铺在 #main 上的背景图，
       // 与正文区域同一张图连续衔接；纯色主题交给 themes.css。
@@ -295,17 +304,17 @@ export default {
       this.save_settings();
       this.show_theme_dialog = false;
     },
-    // 让 iOS 顶部/底部安全区（刘海/灵动岛、home indicator）跟随主题底色 bg。
-    // 关键：viewport-fit=cover 下网页铺到安全区下方，而安全区那条露出的是最底层 html 的背景；
-    // Vuetify 只给 .v-application 设了背景、不给 html/body 设，故隐藏顶栏后顶部露出 html 默认白。
-    // 这里把 html/body 一并刷成 bg，隐藏 appbar 时顶/底安全区都显主题底色（浅绿）。
-    // 同时更新 <meta name="theme-color">（部分浏览器据此着色顶栏，须在 HTML 静态声明、JS 只改 content）。
+    // 让 iOS 顶/底安全区（刘海/灵动岛、home indicator）跟随主题色。
+    // 关键：viewport-fit=cover 下安全区露出的是最底层 html/body 背景，且 iOS 只认
+    // background-COLOR（不渲染 gradient/image），故必须用纯色。html/body 设 bgTop（顶部色）；
+    // 底部若要不同色（图片皮肤 foot），由模板里的 #safe-bottom 固定填充条用纯色覆盖（见 foot_color）。
+    // 纯色皮肤不设 bgTop/bgBottom，回退到 bg。meta 用顶部色。
     apply_theme_color: function (t) {
       t = t || getTheme(this.settings.theme);
-      document.documentElement.style.backgroundColor = t.bg;
-      document.body.style.backgroundColor = t.bg;
+      document.documentElement.style.backgroundColor = t.bgTop || t.bg;
+      document.body.style.backgroundColor = t.bgTop || t.bg;
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute('content', t.bg);
+      if (meta) meta.setAttribute('content', t.bgTop || t.bg);
     },
     // 背景图铺在 #main（v-main）上：覆盖上/下状态栏与正文区域，整屏一张图连续衔接。
     // image 皮肤按屏幕方向选竖版/横版大图（cover）；正文 iframe 与状态栏透明后透出。
@@ -1364,6 +1373,22 @@ export default {
 
 .fixed {
   position: fixed !important;
+}
+
+/* 底部安全区填充条：仅占 home indicator 那条（无安全区设备高度为 0，不可见）。
+   纯色 background（iOS 安全区只认 background-color）。z-index 低于底部导航(1004)，
+   导航显示时被其覆盖、隐藏(display:none)时露出 foot 色，与底图下沿衔接。 */
+#safe-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* 底部安全区（home indicator）填充：背景色由 :style 的 foot_color 提供（图片皮肤=底图下沿色）。
+     不设 z-index，按 DOM 顺序排在 #main 之前 → 被正文/底图盖住，仅 #main 未铺到的 home indicator
+     那条露出 foot 色，故不遮挡正文。给足够高度以适配各机型安全区（多余部分被 #main 盖住不可见）。
+     底部导航(z 1004)显示时盖住此条，隐藏(display:none)时露出 foot 色。 */
+  height: 160px;
+  pointer-events: none;
 }
 
 /* 隐藏底部导航时（非 active）直接移除：Vuetify 默认只是 translateY 下移，但在 iOS
