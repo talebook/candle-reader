@@ -1,9 +1,7 @@
 <template>
   <v-app :theme="settings.theme" full-height density="compact">
     <!-- 顶部菜单 -->
-    <!-- color="background"：顶栏用皮肤底色（而非默认 surface），与隐藏顶栏时露出的根背景同色，
-         使 iOS 顶部状态栏/灵动岛采样到的颜色在显隐两态下都恒为主题底色，不随 appbar 翻白。 -->
-    <v-app-bar v-if="menu.show_navbar" density="compact" color="background">
+    <v-app-bar v-if="menu.show_navbar" density="compact">
       <template v-slot:prepend>
         <v-btn icon :title="is_debug_signal ? '返回首页' : '章评'"> <v-icon>{{ is_debug_signal ? 'mdi-arrow-left' : 'mdi-candle' }}</v-icon> </v-btn>
     </template>
@@ -297,11 +295,15 @@ export default {
       this.save_settings();
       this.show_theme_dialog = false;
     },
-    // 更新 <meta name="theme-color"> 为主题底色：iOS Safari 15+ / Android 浏览器据此给
-    // 顶部状态栏（含灵动岛区域）着色。meta 必须在 HTML 里静态声明（见 demo.html / index.html），
-    // 这里只改它的 content——Safari 在页面解析时判定着色，纯 JS 新插入的 meta 不会被重新读取。
+    // 让 iOS 顶部/底部安全区（刘海/灵动岛、home indicator）跟随主题底色 bg。
+    // 关键：viewport-fit=cover 下网页铺到安全区下方，而安全区那条露出的是最底层 html 的背景；
+    // Vuetify 只给 .v-application 设了背景、不给 html/body 设，故隐藏顶栏后顶部露出 html 默认白。
+    // 这里把 html/body 一并刷成 bg，隐藏 appbar 时顶/底安全区都显主题底色（浅绿）。
+    // 同时更新 <meta name="theme-color">（部分浏览器据此着色顶栏，须在 HTML 静态声明、JS 只改 content）。
     apply_theme_color: function (t) {
       t = t || getTheme(this.settings.theme);
+      document.documentElement.style.backgroundColor = t.bg;
+      document.body.style.backgroundColor = t.bg;
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute('content', t.bg);
     },
@@ -1362,5 +1364,12 @@ export default {
 
 .fixed {
   position: fixed !important;
+}
+
+/* 隐藏底部导航时（非 active）直接移除：Vuetify 默认只是 translateY 下移，但在 iOS
+   （viewport-fit=cover）下其 position:fixed;bottom:0 的背景仍留在 home indicator 安全区，
+   表现为底部残留 surface 深绿。display:none 彻底移除，使底部安全区露出 body 的主题底色。 */
+.v-bottom-navigation:not(.v-bottom-navigation--active) {
+  display: none !important;
 }
 </style>
