@@ -848,7 +848,7 @@ export default {
       const url = `/api/review/book/list?book_id=${this.book_id}&sort=${this.book_review_sort}`;
       this.$backend(url).then(rsp => {
         if (rsp.err == 'ok') {
-          this.book_reviews = rsp.data.list;
+          this.book_reviews = rsp.data.list || [];
         }
       });
     },
