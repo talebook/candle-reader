@@ -7,6 +7,7 @@ const GUEST_RESPONSES = {
   'GET /api/review/me': { err: 'user.need_login', msg: '请先登录' },
   'GET /api/user/info': { err: 'need_login', msg: '未登录' },
   'GET /api/review/book': { err: 'ok', data: { id: 101 } },
+  'GET /api/review/book/list': { err: 'ok', data: { list: [] } },
   'GET /api/review/summary': { err: 'ok', data: { list: [] } },
   'GET /api/review/list': { err: 'ok', data: { list: [] } },
 }

@@ -16,15 +16,16 @@ test('退出登录：确认后回到游客登录表单', async ({ page }) => {
   await setupApiMock(page, loggedIn({ 'GET /api/user/sign_out': { err: 'ok' } }))
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '用户' }).click()
+  await page.getByRole('button', { name: '评论' }).click()
+  await page.getByText(SAMPLE_USER.nickname).click()
   await page.getByText('退出登录').click()
   // 弹出确认框
   await expect(page.getByText('是否要退出登录？')).toBeVisible()
   await page.getByRole('button', { name: '确认' }).click()
 
-  // 登出后 user 置空，UserCenter 被 Guest 取代
+  // 登出后 user 置空，用户中心关闭，本书评论面板回到游客态（展示「点击登录」入口）
   await expect.poll(() => readState(page, 'user')).toBeNull()
-  await expect(page.getByText('登录到书评系统')).toBeVisible()
+  await expect(page.locator('.book-review-card').getByRole('button', { name: '点击登录，发表评论' })).toBeVisible()
 })
 
 test('退出登录：失败时停留并提示错误', async ({ page }) => {
@@ -33,7 +34,8 @@ test('退出登录：失败时停留并提示错误', async ({ page }) => {
   }))
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '用户' }).click()
+  await page.getByRole('button', { name: '评论' }).click()
+  await page.getByText(SAMPLE_USER.nickname).click()
   await page.getByText('退出登录').click()
   await page.getByRole('button', { name: '确认' }).click()
 
@@ -47,7 +49,8 @@ test('修改昵称：保存成功后关闭对话框', async ({ page }) => {
   }))
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '用户' }).click()
+  await page.getByRole('button', { name: '评论' }).click()
+  await page.getByText(SAMPLE_USER.nickname).click()
   await page.getByText('昵称').click()
   await expect(page.getByText('修改昵称')).toBeVisible()
   await page.getByLabel('新昵称').fill('新昵称')
@@ -61,7 +64,8 @@ test('修改昵称：失败时对话框保留并提示', async ({ page }) => {
   }))
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '用户' }).click()
+  await page.getByRole('button', { name: '评论' }).click()
+  await page.getByText(SAMPLE_USER.nickname).click()
   await page.getByText('昵称').click()
   await page.getByLabel('新昵称').fill('重复昵称')
   await page.getByRole('button', { name: '保存' }).click()

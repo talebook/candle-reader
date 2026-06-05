@@ -12,7 +12,7 @@ test('页面加载后底部导航栏可见', async ({ page }) => {
   await gotoReader(page)
   await expect(page.getByRole('button', { name: '目录' })).toBeVisible()
   await expect(page.getByRole('button', { name: '设置' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '用户' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '评论' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'AI' })).toBeVisible()
 })
 

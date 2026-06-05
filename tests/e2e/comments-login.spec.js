@@ -30,9 +30,12 @@ test.describe('章评面板登录入口', () => {
     await gotoReader(page)
     await openPanel(page, 'comments')
 
+    // 章评面板「点击登录」→ set_menu('more') 切到本书评论面板
     await page.getByRole('button', { name: '点击登录，发表评论' }).click()
+    await expect(page.getByText('本书评论')).toBeVisible()
 
-    // 修复后：跳转到「用户/more」面板，展示登录表单
+    // 本书评论面板「点击登录」→ 弹出登录对话框（限定在本书评论卡片内，避开收起中的章评面板同名按钮）
+    await page.locator('.book-review-card').getByRole('button', { name: '点击登录，发表评论' }).click()
     await expect(page.getByText('登录到书评系统')).toBeVisible()
     await expect(page.getByRole('button', { name: '登录', exact: true })).toBeVisible()
 
