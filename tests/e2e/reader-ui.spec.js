@@ -58,6 +58,17 @@ test('设置面板可切换翻页模式 @epub', async ({ page }) => {
   await expect.poll(() => readState(page, 'settings').then(s => s.flow)).toBe('scrolled')
 })
 
+test('设置面板可切换滚轮翻页', async ({ page }) => {
+  await gotoReader(page)
+  await page.getByRole('button', { name: '设置' }).click()
+  // 「滚轮翻页」行的 关闭 按钮（用 row-scoped 定位避开「章评」同名按钮）
+  const wheelRow = page.locator('.v-list-item').filter({ hasText: '滚轮翻页' })
+  await wheelRow.getByRole('button', { name: '关闭' }).click()
+  await expect.poll(() => readState(page, 'settings').then(s => s.wheel_paging)).toBe(false)
+  await wheelRow.getByRole('button', { name: '开启' }).click()
+  await expect.poll(() => readState(page, 'settings').then(s => s.wheel_paging)).toBe(true)
+})
+
 test('点击主题按钮在白天/夜晚间切换 @epub', async ({ page }) => {
   await gotoReader(page)
   await waitForReaderRendered(page)
