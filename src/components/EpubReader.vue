@@ -705,6 +705,31 @@ export default {
         this.rendition.next();
       }
     },
+    on_wheel: function (e) {
+      // ponytail: window 级唯一监听；状态守卫而非按需挂/卸。scrolled 模式让浏览器原生滚动生效；
+      // 面板/dialog 内滚动交还给它们自己；Ctrl/⌘/Alt 留给浏览器缩放。
+      if (!this.settings.wheel_paging) return;
+      if (this.settings.flow !== 'paginated') return;
+      if (!this.rendition) return;
+      if (this.menu.current_panel !== 'hide') return;
+      if (this.show_login || this.show_user_center) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t && t.closest && (
+        t.closest('.v-bottom-sheet') ||
+        t.closest('.v-overlay') ||
+        t.closest('.v-dialog') ||
+        t.closest('.v-menu')
+      )) return;
+
+      // 累积 deltaY：trackpad 一次只发 ~1-10，普通滚轮一次发 ~100；阈值 30 居中，取中防一次滑动翻多页
+      this.wheel_acc = (this.wheel_acc || 0) + e.deltaY;
+      if (Math.abs(this.wheel_acc) < 30) return;
+
+      e.preventDefault();
+      this.rendition[this.wheel_acc > 0 ? 'next' : 'prev']();
+      this.wheel_acc = 0;
+    },
     debug_click: function (x, y, width, height) {
       console.log("click at", x, y, width, height);
       if (!this.is_debug_click) return;
@@ -743,12 +768,25 @@ export default {
       this.rendition.on('mousedown', this.on_mousedown);
       this.rendition.on('mouseup', this.on_mouseup);
       this.rendition.on('resized', this.on_resized);
+      // 滚轮翻页：iframe 内的 wheel 不会自动冒泡到 parent.window（需 iframe 先被用户激活），
+      // 挂到每个渲染出的 iframe.contentDocument 上，每次 rendered 触发再覆盖新 iframe
+      this.rendition.on('rendered', this.bind_iframe_wheel);
       // 添加全屏变化事件监听
       document.addEventListener('fullscreenchange', this.on_fullscreen_change);
       document.addEventListener('webkitfullscreenchange', this.on_fullscreen_change);
       document.addEventListener('mozfullscreenchange', this.on_fullscreen_change);
       document.addEventListener('MSFullscreenChange', this.on_fullscreen_change);
       this.debug_signals();
+    },
+    bind_iframe_wheel: function () {
+      // rendered 回调在不同 epub.js 版本里 shape 不一（Contents 没 iframe 字段）；
+      // 直接 DOM 查 #reader 下所有 iframe，更可靠。连续模式下多 iframe 也覆盖。
+      document.querySelectorAll('#reader iframe').forEach(iframe => {
+        const doc = iframe.contentDocument;
+        if (!doc || doc.__candle_wheel_bound) return;
+        doc.__candle_wheel_bound = true;
+        doc.addEventListener('wheel', this.on_wheel, { passive: false });
+      });
     },
 
     init_themes: function () {
@@ -1149,10 +1187,16 @@ export default {
     link.href = this.themes_css;
     document.head.appendChild(link);
 
-    // 从localStorage加载设置
+    // 从localStorage加载设置；用默认 settings 做底，避免老存档缺少新增 key 时变成 undefined（导致 wheel_paging 等判断失灵）
     const savedSettings = localStorage.getItem('readerSettings');
     if (savedSettings) {
-      this.settings = JSON.parse(savedSettings);
+      const defaults = this.$options.data().settings;
+      const saved = JSON.parse(savedSettings);
+      this.settings = Object.assign({}, defaults);
+      // ponytail: Object.assign 会用 undefined 覆盖默认；显式跳过 undefined 值
+      for (const k in saved) {
+        if (saved[k] !== undefined) this.settings[k] = saved[k];
+      }
       console.log("加载设置：", savedSettings);
     }
     this.is_debug_signal = this.debug;
@@ -1265,7 +1309,6 @@ export default {
       this.loading = false;
       this.showTimeoutDialog = true;
     })
-
   },
   data: () => ({
     loading: true,
@@ -1283,6 +1326,7 @@ export default {
       theme_night: "grey",
       show_comments: true,
       paging_control: "mouse_and_keyboard",
+      wheel_paging: true,
     },
 
     wide_screen: 1000, // 宽屏尺寸

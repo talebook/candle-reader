@@ -101,6 +101,20 @@
             </v-row>
         </v-list-item>
 
+        <v-list-item class="my-2">
+            <v-row class="align-center">
+                <v-col cols="2">
+                    <span density="compact">滚轮翻页</span>
+                </v-col>
+                <v-col cols="10">
+                    <v-btn-group variant="outlined" divided density="compact">
+                        <v-btn :active="opt.wheel_paging == true" @click='set_and_emit("wheel_paging", true)'>开启</v-btn>
+                        <v-btn :active="opt.wheel_paging == false" @click='set_and_emit("wheel_paging", false)'>关闭</v-btn>
+                    </v-btn-group>
+                </v-col>
+            </v-row>
+        </v-list-item>
+
 
         <v-list-item class="my-2">
             <v-row class="align-center">
@@ -158,6 +172,7 @@ export default {
             brightness: this.settings?.brightness || this.opt.brightness,
             show_comments: this.settings?.show_comments ?? this.opt.show_comments,
             paging_control: this.settings?.paging_control || this.opt.paging_control,
+            wheel_paging: this.settings?.wheel_paging ?? this.opt.wheel_paging,
         };
     },
     methods: {
@@ -199,6 +214,7 @@ export default {
             letter_spacing: 0,
             brightness: 100,
             paging_control: "mouse_and_keyboard",
+            wheel_paging: true,
         },
         themes: THEMES,
     })
