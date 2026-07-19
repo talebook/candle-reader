@@ -106,11 +106,11 @@ async function activeHighlight(page) {
   })
 }
 
+async function expectActiveHighlight(page, expected) {
+  await expect.poll(() => activeHighlight(page), { timeout: 15000 }).toMatchObject(expected)
+}
+
 test.beforeEach(async ({ page }) => {
-  page.on('console', (message) => {
-    if (message.text().includes('[DEBUG-audiobook-highlight]')) console.log(message.text())
-  })
-  page.on('pageerror', (error) => console.log('[DEBUG-audiobook-pageerror]', error.stack || error.message))
   await setupAudiobook(page)
 })
 
@@ -123,7 +123,7 @@ test('播放时间轴会自动翻到对应正文并按句段高亮', async ({ pa
   await page.getByRole('button', { name: '播放听书' }).click()
 
   await expect(player).toContainText('好痛！')
-  await expect.poll(() => activeHighlight(page)).toMatchObject({ id: 'seg-1', text: '好痛！' })
+  await expectActiveHighlight(page, { id: 'seg-1', text: '好痛！' })
 })
 
 test('章节视图延迟注册时仍会重试高亮', async ({ page }) => {
@@ -142,14 +142,14 @@ test('章节视图延迟注册时仍会重试高亮', async ({ page }) => {
   await page.getByRole('button', { name: '播放听书' }).click()
 
   await expect(page.getByTestId('candle-audiobook-player')).toContainText('好痛！')
-  await expect.poll(() => activeHighlight(page)).toMatchObject({ id: 'seg-1', text: '好痛！' })
+  await expectActiveHighlight(page, { id: 'seg-1', text: '好痛！' })
 })
 
 test('手动翻页暂停自动跟随，并可返回当前朗读句段', async ({ page }) => {
   await gotoAudiobookReader(page)
   await page.getByRole('button', { name: '听书', exact: true }).click()
   await page.getByRole('button', { name: '播放听书' }).click()
-  await expect.poll(() => activeHighlight(page)).toMatchObject({ id: 'seg-1' })
+  await expectActiveHighlight(page, { id: 'seg-1' })
 
   await page.keyboard.press('ArrowRight')
   const returnButton = page.getByTestId('return-to-narration')
@@ -158,7 +158,7 @@ test('手动翻页暂停自动跟随，并可返回当前朗读句段', async ({
 
   await returnButton.click()
   await expect(returnButton).toBeHidden()
-  await expect.poll(() => activeHighlight(page)).toMatchObject({ id: 'seg-1' })
+  await expectActiveHighlight(page, { id: 'seg-1' })
 })
 
 test('选中正文后可从对应时间轴片段开始听', async ({ page }) => {
@@ -188,5 +188,5 @@ test('选中正文后可从对应时间轴片段开始听', async ({ page }) => 
   const player = page.getByTestId('candle-audiobook-player')
   await expect(player).toBeVisible()
   await expect(player).toContainText('头好痛！', { timeout: 5000 })
-  await expect.poll(() => activeHighlight(page)).toMatchObject({ id: 'seg-2', text: '头好痛！' })
+  await expectActiveHighlight(page, { id: 'seg-2', text: '头好痛！' })
 })

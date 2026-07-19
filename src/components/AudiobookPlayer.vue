@@ -122,7 +122,6 @@ const rates = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 2]
 const highlightRetryIntervalMs = 50
 const highlightSettleMs = 100
 const highlightRetryAttempts = 40
-const highlightDebugPrefix = '[DEBUG-audiobook-highlight]'
 
 let syncTimer = null
 let progressTimer = null
@@ -363,51 +362,29 @@ async function highlightSegment(segment) {
   const locator = segment.locator || {}
   const href = locator.href || chapter.value?.source_key
   let contents = findContent(props.rendition, href)
-  debugHighlight('start', segment, href, contents)
 
   if (!contents && props.rendition && followNarration.value) {
     await props.rendition.display(href)
-    debugHighlight('displayed', segment, href, findContent(props.rendition, href))
   }
 
   for (let attempt = 0; attempt < highlightRetryAttempts; attempt += 1) {
     if (sequence !== highlightSequence || !followNarration.value) return
     contents = findContent(props.rendition, href)
     if (contents && applyHighlight(props.rendition, contents, segment)) {
-      debugHighlight('applied', segment, href, contents)
       await new Promise(resolve => window.setTimeout(resolve, highlightSettleMs))
       if (sequence !== highlightSequence || !followNarration.value) return
 
       const settledContents = findContent(props.rendition, href)
       const highlighted = settledContents?.document?.querySelector('[data-candle-audiobook-active]')
-      if (highlighted?.getAttribute('data-candle-audiobook-active') === segment.id) {
-        debugHighlight('settled', segment, href, settledContents)
-        return
-      }
-      debugHighlight('replaced', segment, href, settledContents)
+      if (highlighted?.getAttribute('data-candle-audiobook-active') === segment.id) return
     }
 
-    if (attempt === 0 || attempt === highlightRetryAttempts - 1) debugHighlight(`attempt-${attempt + 1}`, segment, href, contents)
     await new Promise(resolve => window.setTimeout(resolve, highlightRetryIntervalMs))
   }
 
   if (sequence === highlightSequence && followNarration.value) {
     console.warn('[candle-audiobook] 无法定位时间轴片段', segment.id)
   }
-}
-
-function debugHighlight(stage, segment, href, contents) {
-  const views = props.rendition?.views?.() || []
-  const viewHrefs = []
-  views.forEach?.(view => viewHrefs.push(view?.section?.href || view?.section?.url || ''))
-  console.info(highlightDebugPrefix, JSON.stringify({
-    stage,
-    segment: segment.id,
-    href,
-    matchedHref: contentHref(contents),
-    hasDocument: Boolean(contents?.document),
-    viewHrefs,
-  }))
 }
 
 function onRenditionRendered() {
