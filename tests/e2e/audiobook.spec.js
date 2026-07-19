@@ -107,6 +107,10 @@ async function activeHighlight(page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  page.on('console', (message) => {
+    if (message.text().includes('[DEBUG-audiobook-highlight]')) console.log(message.text())
+  })
+  page.on('pageerror', (error) => console.log('[DEBUG-audiobook-pageerror]', error.stack || error.message))
   await setupAudiobook(page)
 })
 
