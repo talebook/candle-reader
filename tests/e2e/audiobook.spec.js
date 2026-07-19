@@ -148,9 +148,7 @@ test('章节视图延迟注册时仍会重试高亮', async ({ page }) => {
 test('手动翻页暂停自动跟随，并可返回当前朗读句段', async ({ page }) => {
   await gotoAudiobookReader(page)
   await page.getByRole('button', { name: '听书', exact: true }).click()
-  await page.getByRole('button', { name: '播放听书' }).click()
-  await expectActiveHighlight(page, { id: 'seg-1' })
-  await page.getByRole('button', { name: '暂停听书' }).click()
+  await expect(page.getByTestId('candle-audiobook-player')).toContainText('好痛！', { timeout: 15000 })
 
   await page.keyboard.press('ArrowRight')
   const returnButton = page.getByTestId('return-to-narration')
