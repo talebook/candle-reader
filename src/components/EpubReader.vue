@@ -294,8 +294,15 @@ export default {
     },
   },
   methods: {
-    audiobook_request: function (url, options) {
-      return this.$backend(url, options);
+    audiobook_request: async function (url, options = {}) {
+      const response = await fetch(url, {
+        mode: 'cors',
+        credentials: 'include',
+        ...options,
+      });
+      const payload = await response.json();
+      if (!response.ok && !payload?.err) throw new Error(`有声书接口请求失败（${response.status}）`);
+      return payload;
     },
     open_audiobook: function () {
       this.set_menu('hide');
