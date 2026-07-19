@@ -150,6 +150,7 @@ test('手动翻页暂停自动跟随，并可返回当前朗读句段', async ({
   await page.getByRole('button', { name: '听书', exact: true }).click()
   await page.getByRole('button', { name: '播放听书' }).click()
   await expectActiveHighlight(page, { id: 'seg-1' })
+  await page.getByRole('button', { name: '暂停听书' }).click()
 
   await page.keyboard.press('ArrowRight')
   const returnButton = page.getByTestId('return-to-narration')
