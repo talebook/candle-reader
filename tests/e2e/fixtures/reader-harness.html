@@ -9,6 +9,7 @@
   <script src="/js/epub-v0.3.88.js"></script>
   <script type="module">
     import { Reader } from "/src/main.js"
+    const audiobookEnabled = new URLSearchParams(window.location.search).has('audiobook')
     // server 指向本地同源，使所有 /api/** 请求都走同源、便于 Playwright route mock；
     // book_url 用 .epub 压缩包，与生产从 talebook 服务取书一致；JSZip 就位后 headless 下可正常解压渲染。
     new Reader('#app', {
@@ -16,6 +17,10 @@
       themes_css: "/css/themes.css",
       server: window.location.origin,
       book_url: "/demo/book1.epub",
+      display_url: "",
+      book_id: 101,
+      audiobook_edition_id: audiobookEnabled ? 7 : null,
+      audiobook_manifest_url: audiobookEnabled ? '/api/audiobooks/7/manifest' : '',
     })
   </script>
 </head>
