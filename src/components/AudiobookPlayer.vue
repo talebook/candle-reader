@@ -119,6 +119,9 @@ const followNarration = ref(true)
 const sessionId = ref('')
 const progressVersion = ref(0)
 const rates = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 2]
+const highlightRetryIntervalMs = 50
+const highlightSettleMs = 100
+const highlightRetryAttempts = 40
 
 let syncTimer = null
 let progressTimer = null
@@ -135,6 +138,15 @@ watch(
   () => [props.visible, props.editionId, props.manifestUrl],
   ([visible]) => {
     if (visible) void loadManifest()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.rendition,
+  (rendition, previousRendition) => {
+    previousRendition?.off?.('rendered', onRenditionRendered)
+    rendition?.on?.('rendered', onRenditionRendered)
   },
   { immediate: true },
 )
@@ -348,16 +360,36 @@ function syncActiveSegment(force = false) {
 async function highlightSegment(segment) {
   const sequence = ++highlightSequence
   const locator = segment.locator || {}
-  let contents = findContent(props.rendition, locator.href || chapter.value?.source_key)
+  const href = locator.href || chapter.value?.source_key
+  let contents = findContent(props.rendition, href)
 
   if (!contents && props.rendition && followNarration.value) {
-    await props.rendition.display(locator.href || chapter.value?.source_key)
-    await new Promise(resolve => window.setTimeout(resolve, 80))
-    contents = findContent(props.rendition, locator.href || chapter.value?.source_key)
+    await props.rendition.display(href)
   }
-  if (sequence !== highlightSequence || !followNarration.value) return
-  if (!contents || !applyHighlight(props.rendition, contents, segment)) {
+
+  for (let attempt = 0; attempt < highlightRetryAttempts; attempt += 1) {
+    if (sequence !== highlightSequence || !followNarration.value) return
+    contents = findContent(props.rendition, href)
+    if (contents && applyHighlight(props.rendition, contents, segment)) {
+      await new Promise(resolve => window.setTimeout(resolve, highlightSettleMs))
+      if (sequence !== highlightSequence || !followNarration.value) return
+
+      const settledContents = findContent(props.rendition, href)
+      const highlighted = settledContents?.document?.querySelector('[data-candle-audiobook-active]')
+      if (highlighted?.getAttribute('data-candle-audiobook-active') === segment.id) return
+    }
+
+    await new Promise(resolve => window.setTimeout(resolve, highlightRetryIntervalMs))
+  }
+
+  if (sequence === highlightSequence && followNarration.value) {
     console.warn('[candle-audiobook] 无法定位时间轴片段', segment.id)
+  }
+}
+
+function onRenditionRendered() {
+  if (activeSegment.value && followNarration.value && playing.value) {
+    void highlightSegment(activeSegment.value)
   }
 }
 
@@ -476,6 +508,7 @@ function formatTime(value) {
 
 onBeforeUnmount(() => {
   stopTimers()
+  props.rendition?.off?.('rendered', onRenditionRendered)
   clearCurrentHighlight()
   if (sessionId.value) void props.request(`/api/audiobook-sessions/${sessionId.value}`, { method: 'POST' })
 })

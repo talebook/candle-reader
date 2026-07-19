@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test')
 const { setupApiMock } = require('./helpers/mock-api')
 const { HARNESS_URL, waitForReaderRendered } = require('./helpers/reader')
 
-function silentWav(durationSeconds = 8, sampleRate = 8000) {
+function silentWav(durationSeconds = 12, sampleRate = 8000) {
   const sampleCount = durationSeconds * sampleRate
   const dataLength = sampleCount * 2
   const buffer = Buffer.alloc(44 + dataLength)
@@ -30,7 +30,7 @@ const manifest = {
     number: 1,
     title: '第一章 绯红',
     source_key: 'index_split_002.html#filepos138679',
-    duration_ms: 8000,
+    duration_ms: 12000,
     audio_url: '/api/audiobooks/7/chapters/1/audio',
     timeline_url: '/api/audiobooks/7/chapters/1/timeline',
   }],
@@ -40,13 +40,13 @@ const timeline = {
   format: 'voicebook-timeline',
   version: 1,
   chapter_number: 1,
-  duration_ms: 8000,
+  duration_ms: 12000,
   segments: [
     {
       id: 'seg-1',
       index: 0,
       start_ms: 0,
-      end_ms: 4000,
+      end_ms: 9000,
       text: '好痛！',
       locator: {
         type: 'epub-dom-text',
@@ -59,8 +59,8 @@ const timeline = {
     {
       id: 'seg-2',
       index: 1,
-      start_ms: 4200,
-      end_ms: 7600,
+      start_ms: 9200,
+      end_ms: 11600,
       text: '头好痛！',
       locator: {
         type: 'epub-dom-text',
@@ -119,6 +119,25 @@ test('播放时间轴会自动翻到对应正文并按句段高亮', async ({ pa
   await page.getByRole('button', { name: '播放听书' }).click()
 
   await expect(player).toContainText('好痛！')
+  await expect.poll(() => activeHighlight(page)).toMatchObject({ id: 'seg-1', text: '好痛！' })
+})
+
+test('章节视图延迟注册时仍会重试高亮', async ({ page }) => {
+  await gotoAudiobookReader(page)
+  await page.evaluate(() => {
+    const app = document.querySelector('#app').__vue_app__
+    const reader = app._instance.subTree.component.proxy
+    const display = reader.rendition.display.bind(reader.rendition)
+    reader.rendition.display = (...args) => {
+      window.setTimeout(() => void display(...args), 350)
+      return Promise.resolve()
+    }
+  })
+
+  await page.getByRole('button', { name: '听书', exact: true }).click()
+  await page.getByRole('button', { name: '播放听书' }).click()
+
+  await expect(page.getByTestId('candle-audiobook-player')).toContainText('好痛！')
   await expect.poll(() => activeHighlight(page)).toMatchObject({ id: 'seg-1', text: '好痛！' })
 })
 
