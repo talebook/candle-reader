@@ -26,6 +26,11 @@
         <span>{{ switch_theme_text }}</span>
       </v-btn>
 
+      <v-btn v-if="has_audiobook" @click="open_audiobook">
+        <v-icon>mdi-headphones</v-icon>
+        <span>听书</span>
+      </v-btn>
+
       <v-btn value="settings" @click="set_menu('settings')">
         <v-icon>mdi-cog</v-icon>
         <span>设置</span>
@@ -45,6 +50,17 @@
       </v-btn>
 
     </v-bottom-navigation>
+
+    <audiobook-player
+      v-if="has_audiobook"
+      ref="audiobookPlayer"
+      :visible="audiobook_open"
+      :edition-id="audiobook_edition_id"
+      :manifest-url="audiobook_manifest_url"
+      :rendition="rendition"
+      :request="audiobook_request"
+      @close="audiobook_open = false"
+    ></audiobook-player>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.settings" contained persistent z-index="234">
       <settings :settings="settings" @update="update_settings" @open-themes="open_theme_dialog"></settings>
@@ -84,7 +100,7 @@
       <v-toolbar density="compact" border dense floating elevation="10" rounded>
         <v-btn @click="on_click_toolbar_comments">发段评</v-btn>
         <v-divider vertical></v-divider>
-        <v-btn>从这里听</v-btn>
+        <v-btn @click="on_click_toolbar_listen">从这里听</v-btn>
         <v-divider vertical></v-divider>
         <v-btn>复制</v-btn>
         <v-divider vertical></v-divider>
@@ -171,6 +187,7 @@ import Guest from './Guest.vue'
 import UserCenter from './UserCenter.vue'
 import BookComments from './BookComments.vue'
 import BookReview from './BookReview.vue'
+import AudiobookPlayer from './AudiobookPlayer.vue'
 import { THEMES, getTheme } from '@/themes'
 
 export default {
@@ -181,10 +198,22 @@ export default {
     Guest,
     UserCenter,
     BookComments,
-    BookReview
+    BookReview,
+    AudiobookPlayer
   },
-  props: ['book_url', 'display_url', 'debug', 'themes_css'],
+  props: {
+    book_url: { type: String, required: true },
+    display_url: { type: String, default: '' },
+    debug: { type: Boolean, default: false },
+    themes_css: { type: String, default: 'theme.css' },
+    initial_book_id: { type: [Number, String], default: null },
+    audiobook_edition_id: { type: [Number, String], default: null },
+    audiobook_manifest_url: { type: String, default: '' },
+  },
   computed: {
+    has_audiobook: function () {
+      return Boolean(this.audiobook_edition_id || this.audiobook_manifest_url);
+    },
     switch_theme_icon: function () {
       // 当前是白天主题则显示「切换到夜晚」的图标，反之亦然
       const isDayTheme = getTheme(this.settings.theme).mode === 'day';
@@ -265,6 +294,30 @@ export default {
     },
   },
   methods: {
+    audiobook_request: async function (url, options = {}) {
+      const response = await fetch(url, {
+        mode: 'cors',
+        credentials: 'include',
+        ...options,
+      });
+      const payload = await response.json();
+      if (!response.ok && !payload?.err) throw new Error(`有声书接口请求失败（${response.status}）`);
+      return payload;
+    },
+    open_audiobook: function () {
+      this.set_menu('hide');
+      this.audiobook_open = true;
+      this.$nextTick(() => this.$refs.audiobookPlayer?.loadManifest());
+    },
+    suspend_audiobook_follow: function () {
+      this.$refs.audiobookPlayer?.suspendFollow();
+    },
+    on_click_toolbar_listen: function () {
+      const selection = this.selected_location;
+      this.hide_toolbar();
+      this.audiobook_open = true;
+      this.$nextTick(() => this.$refs.audiobookPlayer?.playFromSelection(selection));
+    },
     switch_theme: function () {
       // 在「最近用过的白天主题」与「最近用过的夜晚主题」之间切换
       const isDayTheme = getTheme(this.settings.theme).mode === 'day';
@@ -434,6 +487,7 @@ export default {
     on_click_toc: function (item) {
       console.log(item);
       this.set_menu("hide");
+      this.suspend_audiobook_follow();
       this.rendition.display(item.id);
     },
     on_mousedown: function (mouse_event) {
@@ -487,11 +541,13 @@ export default {
       if ( x < width / N || (is_mobile && y < height / N)) {
         // 点击左侧，往前翻页
         if (!is_keyboard_only) {
+          this.suspend_audiobook_follow();
           this.rendition.prev();
         }
       } else if (x > width * (N-1) / N || (is_mobile && y > height * (N-1) / N)) {
         // 点击右侧，往后翻页
         if (!is_keyboard_only) {
+          this.suspend_audiobook_follow();
           this.rendition.next().then();
         }
       } else {
@@ -698,10 +754,12 @@ export default {
       const c = e.keyCode || e.which;
       // Left & Up
       if (c == 37 || c == 38) {
+        this.suspend_audiobook_follow();
         this.rendition.prev();
       }
       // Right & Down
       if (c == 39 || c == 40) {
+        this.suspend_audiobook_follow();
         this.rendition.next();
       }
     },
@@ -727,6 +785,7 @@ export default {
       if (Math.abs(this.wheel_acc) < 30) return;
 
       e.preventDefault();
+      this.suspend_audiobook_follow();
       this.rendition[this.wheel_acc > 0 ? 'next' : 'prev']();
       this.wheel_acc = 0;
     },
@@ -1153,7 +1212,8 @@ export default {
 
         this.book.ready.then(() => {
           const savedPosition = localStorage.getItem(positionKey);
-          return this.rendition.display(savedPosition || this.display_url);
+          const target = savedPosition || this.display_url;
+          return target ? this.rendition.display(target) : this.rendition.display();
         })
         .then(() => {
           clearTimeout(this.loadingTimeout);
@@ -1181,6 +1241,7 @@ export default {
     },
   },
   mounted: function () {
+    if (this.initial_book_id) this.book_id = Number(this.initial_book_id);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.type = 'text/css';
@@ -1291,7 +1352,8 @@ export default {
 
     this.book.ready.then(() => {
       const savedPosition = localStorage.getItem(positionKey);
-      return this.rendition.display(savedPosition || this.display_url);
+      const target = savedPosition || this.display_url;
+      return target ? this.rendition.display(target) : this.rendition.display();
     })
     .then(() => {
       clearTimeout(this.loadingTimeout);
@@ -1377,6 +1439,7 @@ export default {
     check_if_selected_content: false,
     showTimeoutDialog: false,
     show_theme_dialog: false,
+    audiobook_open: false,
   })
 }
 </script>

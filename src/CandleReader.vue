@@ -2,6 +2,9 @@
   <EpubReader
           :book_url="book_url" :display_url="display_url"
           :debug="debug" :themes_css="themes_css"
+          :initial_book_id="book_id"
+          :audiobook_edition_id="audiobook_edition_id"
+          :audiobook_manifest_url="audiobook_manifest_url"
           />
 </template>
 
@@ -28,6 +31,18 @@ export default {
     themes_css: {
       type: String,
       default: "theme.css"
+    },
+    book_id: {
+      type: [Number, String],
+      default: null
+    },
+    audiobook_edition_id: {
+      type: [Number, String],
+      default: null
+    },
+    audiobook_manifest_url: {
+      type: String,
+      default: ''
     }
   },
   data: () => ({

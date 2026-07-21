@@ -54,6 +54,16 @@ async function setupApiMock(page, overrides = {}) {
       return
     }
 
+    if (body.__body !== undefined) {
+      await route.fulfill({
+        status: body.__status || 200,
+        contentType: body.__contentType || 'application/octet-stream',
+        headers: body.__headers || {},
+        body: body.__body,
+      })
+      return
+    }
+
     await route.fulfill({
       status: body.__status || 200,
       contentType: 'application/json',
