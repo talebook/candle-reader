@@ -31,6 +31,15 @@
         <span>听书</span>
       </v-btn>
 
+      <v-btn v-if="settings.show_annotations" value="annotations" :aria-label="chapter_annotation_count ? `笔记，本章 ${chapter_annotation_count} 条` : '笔记'"
+        @click="on_open_annotations">
+        <v-badge v-if="chapter_annotation_count" color="primary" :content="chapter_annotation_count">
+          <v-icon>mdi-notebook-outline</v-icon>
+        </v-badge>
+        <v-icon v-else>mdi-notebook-outline</v-icon>
+        <span>笔记</span>
+      </v-btn>
+
       <v-btn value="settings" @click="set_menu('settings')">
         <v-icon>mdi-cog</v-icon>
         <span>设置</span>
@@ -91,20 +100,56 @@
         @login="set_menu('more')" @add_review="on_add_review"></book-comments>
     </v-bottom-sheet>
 
+    <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet" max-height="90%" v-model="menu.panels.annotations" contained z-index="234"
+      aria-labelledby="annotation-panel-title">
+      <book-annotations :annotations="annotations" :loading="annotations_loading" :error="annotations_error"
+        @close="set_menu('hide')" @refresh="load_annotations" @locate="locate_annotation"></book-annotations>
+    </v-bottom-sheet>
+
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.ai" contained z-index="234">
       <v-card title="开发中"></v-card>
     </v-bottom-sheet>
 
-    <!-- 浮动工具栏 -->
-    <div id="comments-toolbar" :style="`left: ${toolbar_left}px; top: ${toolbar_top}px;`">
+    <v-dialog v-model="annotation_editor_open" class="annotation-editor-dialog" max-width="520"
+      aria-labelledby="annotation-editor-title" @after-leave="restore_reader_focus">
+      <v-card>
+        <v-card-title id="annotation-editor-title">添加笔记</v-card-title>
+        <v-card-text>
+          <blockquote class="annotation-editor-quote">{{ selected_location.quote_text }}</blockquote>
+          <v-textarea ref="annotationEditorContent" v-model="annotation_editor_content" class="mt-4" label="笔记内容"
+            rows="4" autofocus :error-messages="annotation_editor_error" @update:model-value="annotation_editor_error = ''"></v-textarea>
+          <v-checkbox v-if="annotation_repository?.source === 'callback'" v-model="annotation_editor_public"
+            label="公开给其他用户" hide-details></v-checkbox>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn @click="annotation_editor_open = false">取消</v-btn>
+          <v-btn color="primary" :loading="annotation_saving" @click="save_note">保存笔记</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-snackbar v-model="annotation_feedback_visible" class="annotation-feedback" :color="annotation_feedback_error ? 'error' : 'primary'"
+      :timeout="annotation_feedback_error ? -1 : 5000">
+      {{ annotation_feedback_message }}
+      <template v-slot:actions><v-btn variant="text" @click="annotation_feedback_visible = false">关闭</v-btn></template>
+    </v-snackbar>
+
+    <!-- 文字选择工具栏：划线与笔记 UI 完全由阅读器负责，宿主只注入数据回调。 -->
+    <div v-show="is_toolbar_visible()" id="comments-toolbar" ref="selectionToolbar" role="group"
+      aria-label="选中文字操作" :style="`left: ${toolbar_left}px; top: ${toolbar_top}px;`">
       <v-toolbar density="compact" border dense floating elevation="10" rounded>
+        <template v-if="settings.show_annotations">
+          <v-btn :loading="annotation_saving" @click="save_highlight">划线</v-btn>
+          <v-divider vertical></v-divider>
+          <v-btn :disabled="annotation_saving" @click="open_note_editor">笔记</v-btn>
+          <v-divider vertical></v-divider>
+        </template>
         <v-btn @click="on_click_toolbar_comments">发段评</v-btn>
         <v-divider vertical></v-divider>
-        <v-btn @click="on_click_toolbar_listen">从这里听</v-btn>
-        <v-divider vertical></v-divider>
-        <v-btn>复制</v-btn>
-        <v-divider vertical></v-divider>
-        <v-btn>反馈</v-btn>
+        <v-btn v-if="has_audiobook" @click="on_click_toolbar_listen">从这里听</v-btn>
+        <v-divider v-if="has_audiobook" vertical></v-divider>
+        <v-btn @click="copy_selection">复制</v-btn>
       </v-toolbar>
     </div>
 
@@ -187,7 +232,9 @@ import Guest from './Guest.vue'
 import UserCenter from './UserCenter.vue'
 import BookComments from './BookComments.vue'
 import BookReview from './BookReview.vue'
+import BookAnnotations from './BookAnnotations.vue'
 import AudiobookPlayer from './AudiobookPlayer.vue'
+import { createAnnotationCallbacks, createClientId } from '@/annotations'
 import { THEMES, getTheme } from '@/themes'
 
 export default {
@@ -199,6 +246,7 @@ export default {
     UserCenter,
     BookComments,
     BookReview,
+    BookAnnotations,
     AudiobookPlayer
   },
   props: {
@@ -207,6 +255,7 @@ export default {
     debug: { type: Boolean, default: false },
     themes_css: { type: String, default: 'theme.css' },
     initial_book_id: { type: [Number, String], default: null },
+    annotation_callbacks: { type: Object, default: null },
     audiobook_edition_id: { type: [Number, String], default: null },
     audiobook_manifest_url: { type: String, default: '' },
   },
@@ -317,6 +366,175 @@ export default {
       this.hide_toolbar();
       this.audiobook_open = true;
       this.$nextTick(() => this.$refs.audiobookPlayer?.playFromSelection(selection));
+    },
+    initialize_annotations: function () {
+      try {
+        this.annotation_repository = createAnnotationCallbacks({
+          callbacks: this.annotation_callbacks,
+          bookId: this.initial_book_id,
+          bookUrl: this.book_url,
+        });
+      } catch (error) {
+        this.annotations_error = error.message || '笔记功能初始化失败';
+        console.error('Candle Reader annotations could not be initialized:', error);
+      }
+    },
+    annotation_identity: function (annotation) {
+      return String(annotation?.id || annotation?.client_id || annotation?.cfi || '');
+    },
+    annotation_color: function (annotation) {
+      const colors = { blue: '#4f8fb8', green: '#54a675', pink: '#d97a9d', yellow: '#e6b91e' };
+      return colors[annotation?.color] || annotation?.color || (annotation?.annotation_type === 'note' ? '#4f8fb8' : '#e6b91e');
+    },
+    render_annotation: function (annotation) {
+      if (!this.settings.show_annotations || !this.rendition || !annotation?.cfi) return;
+      const identity = this.annotation_identity(annotation);
+      if (identity && this.rendered_annotation_ids.has(identity)) return;
+      try {
+        this.rendition.annotations.highlight(
+          annotation.cfi,
+          { annotationId: annotation.id || annotation.client_id },
+          () => this.on_open_annotations(),
+          'candle-reader-annotation',
+          { fill: this.annotation_color(annotation), 'fill-opacity': '0.38', 'mix-blend-mode': 'multiply' },
+        );
+        if (identity) this.rendered_annotation_ids.add(identity);
+        this.rendered_annotations.push(annotation);
+      } catch (error) {
+        console.warn('Candle Reader annotation could not be rendered:', identity, error);
+      }
+    },
+    clear_annotation_marks: function () {
+      if (this.rendition?.annotations) {
+        this.rendered_annotations.forEach(annotation => {
+          try {
+            this.rendition.annotations.remove(annotation.cfi, 'highlight');
+          } catch (error) {
+            console.warn('Candle Reader annotation could not be removed:', error);
+          }
+        });
+      }
+      this.rendered_annotations = [];
+      this.rendered_annotation_ids.clear();
+    },
+    load_annotations: async function () {
+      if (!this.annotation_repository || !this.settings.show_annotations) return;
+      const request = ++this.annotation_list_request;
+      this.annotations_loading = true;
+      this.annotations_error = '';
+      try {
+        const annotations = await this.annotation_repository.load();
+        if (request !== this.annotation_list_request) return;
+        this.annotations = annotations;
+        annotations.forEach(this.render_annotation);
+      } catch (error) {
+        if (request !== this.annotation_list_request) return;
+        this.annotations_error = error.message || '笔记加载失败，请稍后重试';
+      } finally {
+        if (request === this.annotation_list_request) this.annotations_loading = false;
+      }
+    },
+    load_chapter_annotations: async function (chapter) {
+      if (!chapter || !this.annotation_repository || !this.settings.show_annotations) return;
+      const request = ++this.annotation_chapter_request;
+      this.chapter_annotation_count = 0;
+      try {
+        const annotations = await this.annotation_repository.load({ chapter });
+        if (request !== this.annotation_chapter_request) return;
+        this.chapter_annotation_count = annotations.length;
+        annotations.forEach(this.render_annotation);
+      } catch (error) {
+        console.warn('Candle Reader chapter annotations could not be loaded:', error);
+      }
+    },
+    on_open_annotations: function () {
+      this.set_menu('annotations');
+      if (this.menu.current_panel === 'annotations') this.load_annotations();
+    },
+    locate_annotation: async function (annotation) {
+      if (!annotation?.cfi || !this.rendition) return;
+      try {
+        await this.rendition.display(annotation.cfi);
+        this.set_menu('hide');
+      } catch (error) {
+        this.show_annotation_feedback('无法定位这条笔记', true);
+      }
+    },
+    show_annotation_feedback: function (message, error = false) {
+      this.annotation_feedback_message = message;
+      this.annotation_feedback_error = error;
+      this.annotation_feedback_visible = true;
+    },
+    upsert_annotation: function (annotation) {
+      const identity = this.annotation_identity(annotation);
+      const index = this.annotations.findIndex(item => this.annotation_identity(item) === identity);
+      if (index >= 0) this.annotations.splice(index, 1, annotation);
+      else this.annotations.unshift(annotation);
+    },
+    save_annotation: async function (annotationType, content, isPrivate) {
+      const passage = this.selected_location;
+      if (!passage?.cfi || !passage?.quote_text || !this.annotation_repository || this.annotation_saving) return null;
+      this.annotation_saving = true;
+      try {
+        const annotation = await this.annotation_repository.save({
+          client_id: passage.client_id || createClientId(),
+          annotation_type: annotationType,
+          is_private: isPrivate,
+          chapter: String(passage.toc?.label || this.current_toc_title || '').trim(),
+          cfi: String(passage.cfi),
+          quote_text: passage.quote_text,
+          content,
+          color: annotationType === 'note' ? 'blue' : 'yellow',
+        });
+        this.upsert_annotation(annotation);
+        this.render_annotation(annotation);
+        this.load_chapter_annotations(String(passage.toc?.label || this.current_toc_title || '').trim());
+        this.hide_toolbar();
+        try { passage.contents?.window?.getSelection()?.removeAllRanges(); } catch (error) { /* noop */ }
+        if (this.selected_location === passage) this.selected_location = {};
+        this.show_annotation_feedback(annotationType === 'highlight' ? '划线已保存' : '笔记已保存');
+        return annotation;
+      } catch (error) {
+        this.show_annotation_feedback(`保存失败：${error.message || '请稍后重试'}`, true);
+        return null;
+      } finally {
+        this.annotation_saving = false;
+      }
+    },
+    save_highlight: function () {
+      return this.save_annotation('highlight', '', true);
+    },
+    open_note_editor: function () {
+      if (!this.selected_location?.quote_text) return;
+      this.hide_toolbar();
+      this.annotation_editor_content = '';
+      this.annotation_editor_error = '';
+      this.annotation_editor_public = false;
+      this.annotation_editor_open = true;
+    },
+    save_note: async function () {
+      const content = this.annotation_editor_content.trim();
+      if (!content) {
+        this.annotation_editor_error = '请填写笔记内容';
+        this.$nextTick(() => this.$refs.annotationEditorContent?.focus());
+        return;
+      }
+      const annotation = await this.save_annotation('note', content, !this.annotation_editor_public);
+      if (annotation) this.annotation_editor_open = false;
+    },
+    restore_reader_focus: function () {
+      document.querySelector('#reader iframe')?.focus();
+    },
+    copy_selection: async function () {
+      const text = this.selected_location?.quote_text;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        this.hide_toolbar();
+        this.show_annotation_feedback('已复制选中文字');
+      } catch (error) {
+        this.show_annotation_feedback('复制失败，请使用系统复制功能', true);
+      }
     },
     switch_theme: function () {
       // 在「最近用过的白天主题」与「最近用过的夜晚主题」之间切换
@@ -460,6 +678,7 @@ export default {
       localStorage.setItem('readerSettings', JSON.stringify(this.settings));
     },
     update_settings: function (opt) {
+      const annotationsWereEnabled = this.settings.show_annotations;
       if (opt.flow != this.settings.flow) {
         // FIXME 切换后，翻页到下一章时css会丢失
         this.rendition.flow(opt.flow)
@@ -470,6 +689,17 @@ export default {
       }
       // 应用主题（含外层背景图、iframe 透明/文字色、行距字距）
       this.apply_theme(this.settings.theme);
+
+      if (annotationsWereEnabled && !this.settings.show_annotations) {
+        this.annotation_list_request++;
+        this.annotation_chapter_request++;
+        this.annotation_editor_open = false;
+        this.chapter_annotation_count = 0;
+        if (this.menu.current_panel === 'annotations') this.set_menu('hide');
+        this.clear_annotation_marks();
+      } else if (!annotationsWereEnabled && this.settings.show_annotations) {
+        this.load_chapter_annotations(this.current_toc_title);
+      }
 
       // 应用亮度设置（作用于 #main，整屏含背景图与状态栏一起调光）
       if (opt.brightness !== undefined) {
@@ -694,16 +924,22 @@ export default {
     },
     show_toolbar: function (rect, iframe_rect) {
       console.log("show toolbar at rect", rect, " from iframe rect", iframe_rect)
-      const toolbar = document.getElementById('comments-toolbar');
-      this.toolbar_left = rect.left + iframe_rect.x;
-
+      const preferredLeft = rect.left + iframe_rect.x;
       const top = rect.top + iframe_rect.y;
       const bottom = rect.bottom + iframe_rect.y;
-      if (top >= (toolbar.offsetHeight + 64)) {
-        this.toolbar_top = (top - toolbar.offsetHeight - 12);
-      } else {
-        this.toolbar_top = (bottom + 12);
-      }
+      this.toolbar_left = 8;
+      this.toolbar_top = bottom + 12;
+      this.$nextTick(() => {
+        const toolbar = this.$refs.selectionToolbar;
+        if (!toolbar) return;
+        const maxLeft = Math.max(8, window.innerWidth - toolbar.offsetWidth - 8);
+        this.toolbar_left = Math.max(8, Math.min(maxLeft, preferredLeft));
+        const bottomClearance = this.menu.show_navbar ? 64 : 8;
+        this.toolbar_top = top >= (toolbar.offsetHeight + 64)
+          ? top - toolbar.offsetHeight - 12
+          : Math.min(window.innerHeight - toolbar.offsetHeight - bottomClearance, bottom + 12);
+        toolbar.querySelector('button')?.focus({ preventScroll: true });
+      });
     },
     is_toolbar_visible: function () {
       return (this.toolbar_left > 0);
@@ -734,8 +970,11 @@ export default {
       console.log("selected segment_id = ", segment_id);
 
       this.selected_location = {
+        client_id: createClientId(),
         toc: toc,
-        cfi: cfi,
+        cfi: String(cfiRange),
+        paragraph_cfi: cfi.toString(),
+        quote_text: range.toString().trim(),
         contents: contents,
         segment_id: segment_id
       }
@@ -751,6 +990,13 @@ export default {
       this.show_selected_comments(s.toc, s.segment_id, s.cfi);
     },
     on_keyup: function (e) {
+      if (e.key === 'Escape' && this.is_toolbar_visible()) {
+        this.hide_toolbar();
+        this.restore_reader_focus();
+        return;
+      }
+      const target = e.target;
+      if (target?.matches?.('input, textarea, select') || target?.isContentEditable) return;
       const c = e.keyCode || e.which;
       // Left & Up
       if (c == 37 || c == 38) {
@@ -1028,6 +1274,7 @@ export default {
           // 只有当章节标题实际变化时，才重新加载评论，避免不必要的 API 请求
           if (this.last_toc_label !== toc.label) {
             this.load_comments_summary(contents, toc);
+            this.load_chapter_annotations(toc.label.trim());
             this.last_toc_label = toc.label;
           }
         }
@@ -1260,6 +1507,7 @@ export default {
       }
       console.log("加载设置：", savedSettings);
     }
+    this.initialize_annotations();
     this.is_debug_signal = this.debug;
     this.is_debug_click = this.debug;
 
@@ -1387,6 +1635,7 @@ export default {
       theme_day: "white",
       theme_night: "grey",
       show_comments: true,
+      show_annotations: true,
       paging_control: "mouse_and_keyboard",
       wheel_paging: true,
     },
@@ -1411,12 +1660,30 @@ export default {
         more: false,
         settings: false,
         comments: false,
+        annotations: false,
         ai: false,
       }
     },
     theme_mode: "day",
     toc_items: [],
     comments: [],
+    annotations: [],
+    annotations_loading: false,
+    annotations_error: "",
+    annotation_repository: null,
+    annotation_list_request: 0,
+    annotation_chapter_request: 0,
+    chapter_annotation_count: 0,
+    annotation_saving: false,
+    annotation_editor_open: false,
+    annotation_editor_content: "",
+    annotation_editor_error: "",
+    annotation_editor_public: false,
+    annotation_feedback_visible: false,
+    annotation_feedback_message: "",
+    annotation_feedback_error: false,
+    rendered_annotations: [],
+    rendered_annotation_ids: new Set(),
     book_reviews: [], // 本书评论 feed（来自 /api/review/book/list）
     book_review_sort: 'latest', // 本书评论排序：latest | hot
     show_login: false, // 登录对话框（评论面板「点击登录」）
@@ -1485,6 +1752,19 @@ export default {
   left: 0;
   top: 0;
   z-index: 999;
+  max-width: calc(100vw - 16px);
+  overflow-x: auto;
+  border-radius: 4px;
+}
+
+.annotation-editor-quote {
+  max-height: 92px;
+  margin: 0;
+  overflow: auto;
+  padding-left: 12px;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  border-left: 3px solid #d0a521;
+  line-height: 1.55;
 }
 
 #main {
@@ -1544,6 +1824,22 @@ export default {
 
 .fixed {
   position: fixed !important;
+}
+
+/* 小屏会同时显示目录、主题、笔记等入口；覆盖 Vuetify 的按钮最小宽度，避免两端入口被裁掉。 */
+.v-bottom-navigation .v-bottom-navigation__content > .v-btn {
+  min-width: 0 !important;
+  flex: 1 1 0;
+  padding-inline: 3px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .annotation-bottom-sheet .v-overlay__content,
+  .annotation-editor-dialog .v-overlay__content,
+  .annotation-feedback .v-snackbar__wrapper {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* 底部安全区填充条：仅占 home indicator 那条（无安全区设备高度为 0，不可见）。

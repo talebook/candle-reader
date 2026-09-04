@@ -131,6 +131,20 @@
         </v-list-item>
 
         <v-list-item class="my-2">
+            <v-row class="align-center">
+                <v-col cols="2">
+                    <span density="compact">划线笔记</span>
+                </v-col>
+                <v-col cols="10">
+                    <v-btn-group variant="outlined" divided density="compact">
+                        <v-btn :active="opt.show_annotations == true" @click="set_and_emit('show_annotations', true)">开启</v-btn>
+                        <v-btn :active="opt.show_annotations == false" @click="set_and_emit('show_annotations', false)">关闭</v-btn>
+                    </v-btn-group>
+                </v-col>
+            </v-row>
+        </v-list-item>
+
+        <v-list-item class="my-2">
             <v-row class="align-center" no-gutters>
                 <v-col cols="2">
                     <span density="compact">皮肤</span>
@@ -171,6 +185,7 @@ export default {
             letter_spacing: this.settings?.letter_spacing || this.opt.letter_spacing,
             brightness: this.settings?.brightness || this.opt.brightness,
             show_comments: this.settings?.show_comments ?? this.opt.show_comments,
+            show_annotations: this.settings?.show_annotations ?? this.opt.show_annotations,
             paging_control: this.settings?.paging_control || this.opt.paging_control,
             wheel_paging: this.settings?.wheel_paging ?? this.opt.wheel_paging,
         };
@@ -213,6 +228,8 @@ export default {
             line_height: 1.5,
             letter_spacing: 0,
             brightness: 100,
+            show_comments: true,
+            show_annotations: true,
             paging_control: "mouse_and_keyboard",
             wheel_paging: true,
         },

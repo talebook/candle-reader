@@ -9,7 +9,30 @@
   <script src="/js/epub-v0.3.88.js"></script>
   <script type="module">
     import { Reader } from "/src/main.js"
-    const audiobookEnabled = new URLSearchParams(window.location.search).has('audiobook')
+    const params = new URLSearchParams(window.location.search)
+    const audiobookEnabled = params.has('audiobook')
+    const annotationCallbacksEnabled = params.has('annotation_callbacks')
+    window.__annotationCalls = []
+    const annotationCallbacks = annotationCallbacksEnabled ? {
+      async load(query) {
+        window.__annotationCalls.push({ operation: 'load', query })
+        return [{
+          id: 'host-note-1',
+          client_id: 'host-note-1',
+          annotation_type: 'note',
+          chapter: '第一章',
+          cfi: '',
+          quote_text: '由宿主回调读取的原文',
+          content: '由宿主回调读取的笔记',
+          color: 'blue',
+          is_private: true,
+        }]
+      },
+      async save(annotation, context) {
+        window.__annotationCalls.push({ operation: 'save', annotation, context })
+        return { ...annotation, id: annotation.client_id }
+      },
+    } : null
     // server 指向本地同源，使所有 /api/** 请求都走同源、便于 Playwright route mock；
     // book_url 用 .epub 压缩包，与生产从 talebook 服务取书一致；JSZip 就位后 headless 下可正常解压渲染。
     new Reader('#app', {
@@ -19,6 +42,7 @@
       book_url: "/demo/book1.epub",
       display_url: "",
       book_id: 101,
+      annotation_callbacks: annotationCallbacks,
       audiobook_edition_id: audiobookEnabled ? 7 : null,
       audiobook_manifest_url: audiobookEnabled ? '/api/audiobooks/7/manifest' : '',
     })
