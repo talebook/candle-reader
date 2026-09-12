@@ -854,7 +854,21 @@ export default {
       const toc = this.find_same_href_in_toc_tree(this.toc_items, section.href);
       console.log("got spine href in toc:", toc)
       if (toc === undefined) {
-        return;
+        // NCX/navigation can omit a readable spine item. Keep a stable chapter
+        // context for both selection saves and reload/re-enable annotation loads.
+        // Do not insert this synthetic entry into the book's actual TOC.
+        if (contents.annotationFallbackToc) return contents.annotationFallbackToc;
+        const body = contents.document.body;
+        const heading = body.querySelector('h1, h2, h3, h4, h5, h6');
+        contents.annotationFallbackToc = {
+          href: section.href,
+          label: heading?.textContent.trim() || `正文 ${section.index + 1}`,
+          elem: body,
+          cfi: new ePub.CFI(body, contents.cfiBase),
+          subitems: [],
+          is_fallback: true,
+        };
+        return contents.annotationFallbackToc;
       }
 
       // 填充 cfi 定位信息
@@ -949,13 +963,11 @@ export default {
       this.is_handlering_selected_content = true;
 
       // 找到选中的元素，并上溯到 P 或者 Hx 对象
-      const range = this.rendition.getRange(cfiRange);
-      var p = range.startContainer.nodeType === Node.TEXT_NODE
+      const range = this.rendition.getRange(cfiRange) || contents.range(cfiRange);
+      const start = range.startContainer.nodeType === Node.TEXT_NODE
         ? range.startContainer.parentElement
         : range.startContainer;
-      while (p.nodeName.toUpperCase() != "P" && p.nodeName.toUpperCase()[0] != "H") {
-        p = p.parentElement;
-      }
+      const p = start.closest('p, h1, h2, h3, h4, h5, h6') || start;
       console.log("selected elem =", p);
 
       // 遍历toc，查找最近的章节名称
@@ -966,7 +978,9 @@ export default {
 
       // 基于cfi的数字快速计算
       // const segment_id = cfi.path.steps[1].index - toc.cfi.path.steps[1].index;
-      const segment_id = this.count_distinct_between(toc.elem, p);
+      const segment_id = toc.is_fallback
+        ? Math.max(0, Array.from(toc.elem.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).indexOf(p))
+        : this.count_distinct_between(toc.elem, p);
       console.log("selected segment_id = ", segment_id);
 
       this.selected_location = {
@@ -1382,7 +1396,10 @@ export default {
       const doc = contents.document;
       const commentContainer = doc.createElement("div");
       commentContainer.className = `comment-icon ${is_hot}`;
-      commentContainer.innerHTML = `<span class="comment-count">${count}</span>`;
+      const commentCount = doc.createElement("span");
+      commentCount.className = 'comment-count';
+      commentCount.textContent = String(count);
+      commentContainer.appendChild(commentCount);
 
       // 将评论组件添加到段落末尾（内联跟随文字）
       elem.appendChild(commentContainer);

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>candle-reader e2e harness</title>
   <!-- 与生产 index.html 一致：JSZip 必须在 epub.js 之前引入（epub.js 靠全局 window.JSZip 解压 .epub） -->
   <script src="/js/jszip-v3.10.1.min.js"></script>
@@ -39,7 +39,8 @@
       debug: false,
       themes_css: "/css/themes.css",
       server: window.location.origin,
-      book_url: "/demo/book1.epub",
+      book_url: params.has('missing_toc') ? '/tests/e2e/fixtures/missing-toc/'
+        : audiobookEnabled ? '/tests/e2e/fixtures/audiobook/' : '/demo/book1.epub',
       display_url: "",
       book_id: 101,
       annotation_callbacks: annotationCallbacks,

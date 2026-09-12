@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="book-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="book-id">tb199-missing-toc</dc:identifier>
+    <dc:title>缺目录回归书</dc:title><dc:language>zh</dc:language>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml" />
+    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml" />
+    <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml" />
+    <item id="bare" href="bare.xhtml" media-type="application/xhtml+xml" />
+  </manifest>
+  <spine toc="ncx"><itemref idref="cover" /><itemref idref="chapter" /><itemref idref="bare" /></spine>
+</package>
