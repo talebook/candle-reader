@@ -11,7 +11,8 @@
     </template>
       {{ is_debug_signal ? alert_msg : book_title }}
       <v-spacer></v-spacer>
-      <v-btn icon title="更多选项"> <v-icon>mdi-dots-vertical</v-icon> </v-btn>
+      <v-btn v-if="has_audiobook" @click="open_audiobook" title="听书"><v-icon>mdi-headphones</v-icon><span>听书</span></v-btn>
+      <v-btn icon title="更多选项" @click="set_menu('ai')"> <v-icon>mdi-dots-vertical</v-icon> </v-btn>
     </v-app-bar>
 
     <!-- 底部菜单 -->
@@ -26,12 +27,7 @@
         <span>{{ switch_theme_text }}</span>
       </v-btn>
 
-      <v-btn v-if="has_audiobook" @click="open_audiobook">
-        <v-icon>mdi-headphones</v-icon>
-        <span>听书</span>
-      </v-btn>
-
-      <v-btn v-if="settings.show_annotations" value="annotations" :aria-label="chapter_annotation_count ? `笔记，本章 ${chapter_annotation_count} 条` : '笔记'"
+      <v-btn value="annotations" :aria-label="chapter_annotation_count ? `笔记，本章 ${chapter_annotation_count} 条` : '笔记'"
         @click="on_open_annotations">
         <v-badge v-if="chapter_annotation_count" color="primary" :content="chapter_annotation_count">
           <v-icon>mdi-notebook-outline</v-icon>
@@ -43,19 +39,6 @@
       <v-btn value="settings" @click="set_menu('settings')">
         <v-icon>mdi-cog</v-icon>
         <span>设置</span>
-      </v-btn>
-
-      <v-btn value="more" @click="on_open_comments">
-        <v-badge color="error" :content="unread_count" v-if="unread_count">
-          <v-icon>mdi-comment-text-multiple-outline</v-icon>
-        </v-badge>
-        <v-icon v-else>mdi-comment-text-multiple-outline</v-icon>
-        <span>评论</span>
-      </v-btn>
-
-      <v-btn value="ai" @click="set_menu('ai')">
-        <v-icon>mdi-face-man-shimmer</v-icon>
-        <span>AI</span>
       </v-btn>
 
     </v-bottom-navigation>
@@ -80,6 +63,7 @@
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
+      <v-btn variant="tonal" @click="on_open_annotations">返回笔记</v-btn>
       <book-review :user="user" :login="is_login" :comments="book_reviews" :sort="book_review_sort"
         @close="set_menu('hide')" @login="show_login = true" @update:sort="on_change_book_review_sort"
         @open-settings="show_user_center = true" @add="on_add_book_review" @jump="on_jump_review"></book-review>
@@ -96,14 +80,30 @@
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.comments" contained  z-index="234">
+      <v-btn variant="tonal" @click="on_open_annotations">返回笔记</v-btn>
       <book-comments :login="is_login" :comments="comments" @close="set_menu('hide')"
         @login="set_menu('more')" @add_review="on_add_review"></book-comments>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet" max-height="90%" v-model="menu.panels.annotations" contained z-index="234"
-      aria-labelledby="annotation-panel-title">
-      <book-annotations :annotations="annotations" :loading="annotations_loading" :error="annotations_error"
-        @close="set_menu('hide')" @refresh="load_annotations" @locate="locate_annotation"></book-annotations>
+      aria-label="阅读笔记">
+      <v-card>
+        <v-card-title>笔记</v-card-title>
+        <div v-if="settings.notes_enabled" class="d-flex flex-wrap ga-2 px-4 pb-3" aria-label="笔记分类">
+          <v-btn variant="tonal" @click="load_annotations">划线笔记</v-btn>
+          <v-btn variant="tonal" :disabled="!settings.show_comments || !current_toc" @click="open_chapter_comments">当前章评</v-btn>
+          <v-btn variant="tonal" aria-label="本书评论" :disabled="!settings.show_comments" @click="on_open_comments">
+            <v-badge v-if="unread_count" color="error" :content="unread_count">本书评论</v-badge>
+            <span v-else>本书评论</span>
+          </v-btn>
+        </div>
+        <v-card-text v-if="!settings.notes_enabled">笔记已关闭，已有数据会保留。
+          <v-btn variant="text" @click="set_menu('settings')">前往设置</v-btn>
+        </v-card-text>
+        <v-card-text v-else-if="!settings.show_comments" class="py-0">章节段落评论已关闭，可在设置中开启。</v-card-text>
+        <book-annotations v-if="settings.notes_enabled" :annotations="annotations" :loading="annotations_loading" :error="annotations_error"
+          @close="set_menu('hide')" @refresh="load_annotations" @locate="locate_annotation"></book-annotations>
+      </v-card>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.ai" contained z-index="234">
@@ -139,13 +139,13 @@
     <div v-show="is_toolbar_visible()" id="comments-toolbar" ref="selectionToolbar" role="group"
       aria-label="选中文字操作" :style="`left: ${toolbar_left}px; top: ${toolbar_top}px;`">
       <v-toolbar density="compact" border dense floating elevation="10" rounded>
-        <template v-if="settings.show_annotations">
+        <template v-if="settings.notes_enabled">
           <v-btn :loading="annotation_saving" @click="save_highlight">划线</v-btn>
           <v-divider vertical></v-divider>
           <v-btn :disabled="annotation_saving" @click="open_note_editor">笔记</v-btn>
           <v-divider vertical></v-divider>
         </template>
-        <v-btn @click="on_click_toolbar_comments">发段评</v-btn>
+        <v-btn v-if="comments_enabled" @click="on_click_toolbar_comments">发段评</v-btn>
         <v-divider vertical></v-divider>
         <v-btn v-if="has_audiobook" @click="on_click_toolbar_listen">从这里听</v-btn>
         <v-divider v-if="has_audiobook" vertical></v-divider>
@@ -226,6 +226,7 @@
 </template>
 
 <script>
+import { normalizeNoteSettings } from '@/note-settings'
 import Settings from './Settings.vue'
 import BookToc from './BookToc.vue'
 import Guest from './Guest.vue'
@@ -260,6 +261,7 @@ export default {
     audiobook_manifest_url: { type: String, default: '' },
   },
   computed: {
+    comments_enabled: function () { return this.settings.notes_enabled && this.settings.show_comments; },
     has_audiobook: function () {
       return Boolean(this.audiobook_edition_id || this.audiobook_manifest_url);
     },
@@ -387,7 +389,7 @@ export default {
       return colors[annotation?.color] || annotation?.color || (annotation?.annotation_type === 'note' ? '#4f8fb8' : '#e6b91e');
     },
     render_annotation: function (annotation) {
-      if (!this.settings.show_annotations || !this.rendition || !annotation?.cfi) return;
+      if (!this.settings.notes_enabled || !this.rendition || !annotation?.cfi) return;
       const identity = this.annotation_identity(annotation);
       if (identity && this.rendered_annotation_ids.has(identity)) return;
       try {
@@ -418,7 +420,7 @@ export default {
       this.rendered_annotation_ids.clear();
     },
     load_annotations: async function () {
-      if (!this.annotation_repository || !this.settings.show_annotations) return;
+      if (!this.annotation_repository || !this.settings.notes_enabled) return;
       const request = ++this.annotation_list_request;
       this.annotations_loading = true;
       this.annotations_error = '';
@@ -435,7 +437,7 @@ export default {
       }
     },
     load_chapter_annotations: async function (chapter) {
-      if (!chapter || !this.annotation_repository || !this.settings.show_annotations) return;
+      if (!chapter || !this.annotation_repository || !this.settings.notes_enabled) return;
       const request = ++this.annotation_chapter_request;
       this.chapter_annotation_count = 0;
       try {
@@ -472,6 +474,7 @@ export default {
       else this.annotations.unshift(annotation);
     },
     save_annotation: async function (annotationType, content, isPrivate) {
+      if (!this.settings.notes_enabled) return null;
       const passage = this.selected_location;
       if (!passage?.cfi || !passage?.quote_text || !this.annotation_repository || this.annotation_saving) return null;
       this.annotation_saving = true;
@@ -505,7 +508,7 @@ export default {
       return this.save_annotation('highlight', '', true);
     },
     open_note_editor: function () {
-      if (!this.selected_location?.quote_text) return;
+      if (!this.settings.notes_enabled || !this.selected_location?.quote_text) return;
       this.hide_toolbar();
       this.annotation_editor_content = '';
       this.annotation_editor_error = '';
@@ -678,7 +681,8 @@ export default {
       localStorage.setItem('readerSettings', JSON.stringify(this.settings));
     },
     update_settings: function (opt) {
-      const annotationsWereEnabled = this.settings.show_annotations;
+      const annotationsWereEnabled = this.settings.notes_enabled;
+      const commentsWereEnabled = this.comments_enabled;
       if (opt.flow != this.settings.flow) {
         // FIXME 切换后，翻页到下一章时css会丢失
         this.rendition.flow(opt.flow)
@@ -690,15 +694,32 @@ export default {
       // 应用主题（含外层背景图、iframe 透明/文字色、行距字距）
       this.apply_theme(this.settings.theme);
 
-      if (annotationsWereEnabled && !this.settings.show_annotations) {
+      if (annotationsWereEnabled && !this.settings.notes_enabled) {
         this.annotation_list_request++;
         this.annotation_chapter_request++;
         this.annotation_editor_open = false;
+        this.annotations_loading = false;
         this.chapter_annotation_count = 0;
         if (this.menu.current_panel === 'annotations') this.set_menu('hide');
         this.clear_annotation_marks();
-      } else if (!annotationsWereEnabled && this.settings.show_annotations) {
+      } else if (!annotationsWereEnabled && this.settings.notes_enabled) {
         this.load_chapter_annotations(this.current_toc_title);
+      }
+
+      if (!this.settings.notes_enabled || !this.settings.show_selection_toolbar) this.hide_toolbar();
+      if (commentsWereEnabled !== this.comments_enabled) {
+        this.comments_request++;
+        this.book_reviews = [];
+        this.comments = [];
+        for (const contents of this.rendition.getContents()) {
+          contents.document.querySelectorAll('.comment-icon').forEach(icon => icon.remove());
+        }
+        if (this.comments_enabled && this.current_toc) {
+          delete this.current_toc.load_time;
+          const contents = this.rendition.getContents().find(c => c.document === this.current_toc.elem.ownerDocument);
+          if (contents) this.load_comments_summary(contents, this.current_toc);
+        }
+        if (['more', 'comments'].includes(this.menu.current_panel)) this.set_menu('annotations');
       }
 
       // 应用亮度设置（作用于 #main，整屏含背景图与状态栏一起调光）
@@ -937,6 +958,7 @@ export default {
       this.toolbar_left = -999;
     },
     show_toolbar: function (rect, iframe_rect) {
+      if (!this.settings.notes_enabled || !this.settings.show_selection_toolbar) return;
       console.log("show toolbar at rect", rect, " from iframe rect", iframe_rect)
       const preferredLeft = rect.left + iframe_rect.x;
       const top = rect.top + iframe_rect.y;
@@ -945,7 +967,7 @@ export default {
       this.toolbar_top = bottom + 12;
       this.$nextTick(() => {
         const toolbar = this.$refs.selectionToolbar;
-        if (!toolbar) return;
+        if (!toolbar || !this.settings.notes_enabled || !this.settings.show_selection_toolbar) return;
         const maxLeft = Math.max(8, window.innerWidth - toolbar.offsetWidth - 8);
         this.toolbar_left = Math.max(8, Math.min(maxLeft, preferredLeft));
         const bottomClearance = this.menu.show_navbar ? 64 : 8;
@@ -956,7 +978,7 @@ export default {
       });
     },
     is_toolbar_visible: function () {
-      return (this.toolbar_left > 0);
+      return this.settings.notes_enabled && this.settings.show_selection_toolbar && this.toolbar_left > 0;
     },
     on_select_content: function (cfiRange, contents) {
       console.log("on selectd", cfiRange, contents)
@@ -1192,7 +1214,15 @@ export default {
       this.rendition.display(cfi);
       this.set_menu('hide');
     },
+    open_chapter_comments: async function () {
+      if (!this.comments_enabled || !this.current_toc) return;
+      const toc = this.current_toc;
+      const contents = this.rendition.getContents().find(c => c.document === toc.elem.ownerDocument);
+      await this.load_comments_summary(contents, toc);
+      if (this.comments_enabled) this.show_selected_comments(toc, 0, toc.cfi.toString());
+    },
     on_open_comments: function () {
+      if (!this.comments_enabled) return;
       this.set_menu('more');
       this.load_book_reviews();
     },
@@ -1201,9 +1231,11 @@ export default {
       this.load_book_reviews();
     },
     load_book_reviews: function () {
-      if (!this.book_id) return; // book_id 尚未就绪（依赖 metadata 解析）
+      if (!this.comments_enabled || !this.book_id) return;
+      const request = this.comments_request;
       const url = `/api/review/book/list?book_id=${this.book_id}&sort=${this.book_review_sort}`;
       this.$backend(url).then(rsp => {
+        if (!this.comments_enabled || request !== this.comments_request) return;
         if (rsp.err == 'ok') {
           this.book_reviews = rsp.data.list || [];
         }
@@ -1297,6 +1329,8 @@ export default {
       }
     },
     load_comments_summary: function (contents, toc) {
+      if (!this.comments_enabled) return;
+      const request = this.comments_request;
       console.log("load_comments_summary at ", contents, toc)
       if (toc === undefined) {
         console.log("!! 加载章评错误，章节信息为空")
@@ -1316,25 +1350,26 @@ export default {
       // 查询该章节的评论总数，并保存到toc对象中，然后展示图标
       const chapter_name = toc.label.trim();
       var url = `/api/review/summary?book_id=${this.book_id}&chapter_name=${chapter_name}`;
-      this.$backend(url).then(rsp => {
+      return this.$backend(url).then(rsp => {
+        if (!this.comments_enabled || request !== this.comments_request) return;
         toc.load_time = new Date();
         toc.summary = {}
         toc.chapter_id = rsp.data.chapter_id;
-        rsp.data.list.forEach(item => {
+        (rsp.data.list || []).forEach(item => {
           toc.summary[item.segmentId] = item;
           toc.icons_rendered = false;
         })
       }).catch(function (error) {
         console.error('请求过程中出现错误：', error);
       }).finally(() => {
-        this.add_comment_icons(contents, toc);
+        if (this.comments_enabled && request === this.comments_request) this.add_comment_icons(contents, toc);
       });;
     },
     add_comment_icons: function (contents, toc) {
       console.log("添加评论图标和计数器：", toc.label.trim())
 
       // 如果章评功能关闭，不添加图标
-      if (!this.settings.show_comments) {
+      if (!this.comments_enabled) {
         return;
       }
 
@@ -1411,6 +1446,8 @@ export default {
       });
     },
     show_selected_comments: function (toc, segment_id, cfi) {
+      if (!this.comments_enabled) return;
+      const request = this.comments_request;
       // 重置状态
       this.comments = [];
       this.comments_location = {
@@ -1426,7 +1463,8 @@ export default {
       }
       const url = `/api/review/list?book_id=${this.book_id}&chapter_id=${toc.chapter_id}&segment_id=${segment_id}&cfi=${cfi}`;
       this.$backend(url).then(rsp => {
-        this.comments = rsp.data.list;
+        if (!this.comments_enabled || request !== this.comments_request) return;
+        this.comments = rsp.data.list || [];
         this.set_menu("comments")
         // this.set_menu("comments");
       })
@@ -1522,7 +1560,7 @@ export default {
       for (const k in saved) {
         if (saved[k] !== undefined) this.settings[k] = saved[k];
       }
-      console.log("加载设置：", savedSettings);
+      Object.assign(this.settings, normalizeNoteSettings(saved));
     }
     this.initialize_annotations();
     this.is_debug_signal = this.debug;
@@ -1539,7 +1577,7 @@ export default {
 
     this.loading = true;
     const url = `/api/review/me?count=true`;
-    this.$backend(url).then(rsp => {
+    if (this.comments_enabled) this.$backend(url).then(rsp => {
       if (rsp.err == "user.need_login") {
         this.is_login = false;
       } else if (rsp.err == "ok") {
@@ -1554,6 +1592,7 @@ export default {
     })
 
     this.$backend(`/api/user/info`).then(rsp => {
+      if (!this.comments_enabled) this.is_login = rsp.err === "ok";
       if (rsp.err == "ok") {
         this.user = rsp.data;
       } else if (rsp.err === "network_error") {
@@ -1652,7 +1691,9 @@ export default {
       theme_day: "white",
       theme_night: "grey",
       show_comments: true,
-      show_annotations: true,
+      notes_enabled: true,
+      show_selection_toolbar: true,
+      notes_settings_version: 2,
       paging_control: "mouse_and_keyboard",
       wheel_paging: true,
     },
@@ -1683,6 +1724,7 @@ export default {
     },
     theme_mode: "day",
     toc_items: [],
+    comments_request: 0,
     comments: [],
     annotations: [],
     annotations_loading: false,

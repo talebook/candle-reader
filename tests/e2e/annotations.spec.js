@@ -111,12 +111,12 @@ test('笔记面板提供空状态、加载状态和可重试错误', async ({ pa
 test('设置可以关闭并重新开启划线笔记功能', async ({ page }) => {
   await gotoReader(page)
   await openPanel(page, 'settings')
-  const annotationRow = page.locator('.v-list-item').filter({ hasText: '划线笔记' })
+  const annotationRow = page.locator('[data-setting=notes_enabled]')
   await annotationRow.getByRole('button', { name: '关闭' }).click()
-  await expect.poll(() => readState(page, 'settings').then(settings => settings.show_annotations)).toBe(false)
-  await expect(notesButton(page)).toHaveCount(0)
+  await expect.poll(() => readState(page, 'settings').then(settings => settings.notes_enabled)).toBe(false)
+  await expect(notesButton(page)).toBeVisible()
 
   await annotationRow.getByRole('button', { name: '开启' }).click()
-  await expect.poll(() => readState(page, 'settings').then(settings => settings.show_annotations)).toBe(true)
+  await expect.poll(() => readState(page, 'settings').then(settings => settings.notes_enabled)).toBe(true)
   await expect(notesButton(page)).toBeVisible()
 })

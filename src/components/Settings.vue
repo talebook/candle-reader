@@ -116,32 +116,16 @@
         </v-list-item>
 
 
-        <v-list-item class="my-2">
-            <v-row class="align-center">
-                <v-col cols="2">
-                    <span density="compact">章评*</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.show_comments == true" @click="set_and_emit('show_comments', true)">开启</v-btn>
-                        <v-btn :active="opt.show_comments == false" @click="set_and_emit('show_comments', false)">关闭</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
-        </v-list-item>
-
-        <v-list-item class="my-2">
-            <v-row class="align-center">
-                <v-col cols="2">
-                    <span density="compact">划线笔记</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.show_annotations == true" @click="set_and_emit('show_annotations', true)">开启</v-btn>
-                        <v-btn :active="opt.show_annotations == false" @click="set_and_emit('show_annotations', false)">关闭</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
+        <v-list-item v-for="item in note_options" :key="item.key" class="my-2" :data-setting="item.key">
+            <div class="d-flex align-center justify-space-between ga-2">
+                <span>{{ item.label }}</span>
+                <v-btn-group variant="outlined" divided density="comfortable" :aria-label="item.label">
+                    <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === true"
+                        :aria-pressed="opt[item.key] === true" @click="set_and_emit(item.key, true)">开启</v-btn>
+                    <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === false"
+                        :aria-pressed="opt[item.key] === false" @click="set_and_emit(item.key, false)">关闭</v-btn>
+                </v-btn-group>
+            </div>
         </v-list-item>
 
         <v-list-item class="my-2">
@@ -185,7 +169,8 @@ export default {
             letter_spacing: this.settings?.letter_spacing || this.opt.letter_spacing,
             brightness: this.settings?.brightness || this.opt.brightness,
             show_comments: this.settings?.show_comments ?? this.opt.show_comments,
-            show_annotations: this.settings?.show_annotations ?? this.opt.show_annotations,
+            notes_enabled: this.settings?.notes_enabled ?? this.opt.notes_enabled,
+            show_selection_toolbar: this.settings?.show_selection_toolbar ?? this.opt.show_selection_toolbar,
             paging_control: this.settings?.paging_control || this.opt.paging_control,
             wheel_paging: this.settings?.wheel_paging ?? this.opt.wheel_paging,
         };
@@ -229,10 +214,16 @@ export default {
             letter_spacing: 0,
             brightness: 100,
             show_comments: true,
-            show_annotations: true,
+            notes_enabled: true,
+            show_selection_toolbar: true,
             paging_control: "mouse_and_keyboard",
             wheel_paging: true,
         },
+        note_options: [
+            { key: 'notes_enabled', label: '笔记' },
+            { key: 'show_comments', label: '加载章节段落评论', child: true },
+            { key: 'show_selection_toolbar', label: '选中后出现工具栏', child: true },
+        ],
         themes: THEMES,
     })
 }

@@ -91,6 +91,7 @@ async function setupAudiobook(page) {
 async function gotoAudiobookReader(page) {
   await page.goto(`${HARNESS_URL}?audiobook=1`)
   await page.getByRole('button', { name: '听书', exact: true }).waitFor({ state: 'visible' })
+  await expect(page.locator('.v-bottom-navigation button')).toHaveText(['目录', '夜晚', /笔记$/, '设置'])
   await waitForReaderRendered(page)
 }
 

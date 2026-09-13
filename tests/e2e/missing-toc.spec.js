@@ -63,7 +63,7 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
     }, selection.cfi)
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
     await openPanel(page, 'settings')
-    const row = page.locator('.v-list-item').filter({ hasText: '划线笔记' })
+    const row = page.locator('[data-setting=notes_enabled]')
     await row.getByRole('button', { name: '关闭', exact: true }).click()
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(0)
     await row.getByRole('button', { name: '开启', exact: true }).click()

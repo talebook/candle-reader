@@ -16,7 +16,8 @@ test('退出登录：确认后回到游客登录表单', async ({ page }) => {
   await setupApiMock(page, loggedIn({ 'GET /api/user/sign_out': { err: 'ok' } }))
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByText(SAMPLE_USER.nickname).click()
   await page.getByText('退出登录').click()
   // 弹出确认框
@@ -34,7 +35,8 @@ test('退出登录：失败时停留并提示错误', async ({ page }) => {
   }))
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByText(SAMPLE_USER.nickname).click()
   await page.getByText('退出登录').click()
   await page.getByRole('button', { name: '确认' }).click()
@@ -49,7 +51,8 @@ test('修改昵称：保存成功后关闭对话框', async ({ page }) => {
   }))
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByText(SAMPLE_USER.nickname).click()
   await page.getByText('昵称').click()
   await expect(page.getByText('修改昵称')).toBeVisible()
@@ -64,7 +67,8 @@ test('修改昵称：失败时对话框保留并提示', async ({ page }) => {
   }))
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByText(SAMPLE_USER.nickname).click()
   await page.getByText('昵称').click()
   await page.getByLabel('新昵称').fill('重复昵称')
@@ -74,9 +78,10 @@ test('修改昵称：失败时对话框保留并提示', async ({ page }) => {
   await expect(page.getByText('修改昵称')).toBeVisible()
 })
 
-test('有未读消息时「用户」按钮显示红点角标', async ({ page }) => {
+test('有未读消息时统一笔记入口中的本书评论显示角标', async ({ page }) => {
   await setupApiMock(page, loggedIn({ 'GET /api/review/me': { err: 'ok', data: { count: 3 } } }))
   await gotoReader(page)
   await expect.poll(() => readState(page, 'unread_count')).toBe(3)
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
   await expect(page.locator('.v-badge__badge').filter({ hasText: '3' })).toBeVisible()
 })
