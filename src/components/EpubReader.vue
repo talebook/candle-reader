@@ -12,12 +12,12 @@
       {{ is_debug_signal ? alert_msg : book_title }}
       <v-spacer></v-spacer>
       <v-btn v-if="has_audiobook" min-height="44" @click="open_audiobook" title="听书"><v-icon>mdi-headphones</v-icon><span>听书</span></v-btn>
-      <v-btn icon title="更多选项" @click="set_menu('ai')"> <v-icon>mdi-dots-vertical</v-icon> </v-btn>
+      <v-btn ref="panelEntryAi" icon title="更多选项" @click="set_menu('ai')"> <v-icon>mdi-dots-vertical</v-icon> </v-btn>
     </v-app-bar>
 
     <!-- 底部菜单 -->
     <v-bottom-navigation v-model="menu.value" :active="menu.show_navbar" z-index="2599">
-      <v-btn value="toc" @click="set_menu('toc')">
+      <v-btn ref="panelEntryToc" value="toc" @click="set_menu('toc')">
         <v-icon>mdi-book-open-variant-outline</v-icon>
         <span>目录</span>
       </v-btn>
@@ -27,7 +27,7 @@
         <span>{{ switch_theme_text }}</span>
       </v-btn>
 
-      <v-btn value="annotations" :aria-label="chapter_annotation_count ? `笔记，本章 ${chapter_annotation_count} 条` : '笔记'"
+      <v-btn ref="panelEntryAnnotations" value="annotations" :aria-label="chapter_annotation_count ? `笔记，本章 ${chapter_annotation_count} 条` : '笔记'"
         @click="on_open_annotations">
         <v-badge v-if="chapter_annotation_count" color="primary" :content="chapter_annotation_count">
           <v-icon>mdi-notebook-outline</v-icon>
@@ -36,7 +36,7 @@
         <span>笔记</span>
       </v-btn>
 
-      <v-btn value="settings" @click="set_menu('settings')">
+      <v-btn ref="panelEntrySettings" value="settings" @click="set_menu('settings')">
         <v-icon>mdi-cog</v-icon>
         <span>设置</span>
       </v-btn>
@@ -54,15 +54,15 @@
       @close="audiobook_open = false"
     ></audiobook-player>
 
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.settings" contained persistent z-index="234">
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.settings" @update:model-value="on_panel_model_update('settings', $event)" @after-leave="on_panel_after_leave('settings')" contained z-index="234">
       <settings :settings="settings" @update="update_settings" @open-themes="open_theme_dialog"></settings>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" contained close-on-content-click  z-index="234">
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" @update:model-value="on_panel_model_update('toc', $event)" @after-leave="on_panel_after_leave('toc')" contained close-on-content-click  z-index="234">
       <book-toc ref="bookTocComponent" :meta="book_meta" :toc_items="toc_items" :current-chapter="current_toc" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" contained z-index="234">
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" @update:model-value="on_panel_model_update('more', $event)" @after-leave="on_panel_after_leave('more')" contained z-index="234">
       <v-btn variant="tonal" @click="on_open_annotations">返回笔记</v-btn>
       <book-review :user="user" :login="is_login" :comments="book_reviews" :sort="book_review_sort"
         @close="set_menu('hide')" @login="show_login = true" @update:sort="on_change_book_review_sort"
@@ -79,13 +79,13 @@
       <user-center :messages="comments" :user="user" @update="on_login_user" @logout="on_book_logout"></user-center>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.comments" contained  z-index="234">
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.comments" @update:model-value="on_panel_model_update('comments', $event)" @after-leave="on_panel_after_leave('comments')" contained  z-index="234">
       <v-btn variant="tonal" @click="on_open_annotations">返回笔记</v-btn>
       <book-comments :login="is_login" :comments="comments" @close="set_menu('hide')"
         @login="set_menu('more')" @add_review="on_add_review"></book-comments>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet" max-height="90%" v-model="menu.panels.annotations" contained z-index="234"
+    <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet" max-height="90%" v-model="menu.panels.annotations" @update:model-value="on_panel_model_update('annotations', $event)" @after-leave="on_panel_after_leave('annotations')" contained z-index="234"
       aria-label="阅读笔记">
       <v-card>
         <v-toolbar density="compact">
@@ -113,7 +113,7 @@
       </v-card>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.ai" contained z-index="234">
+    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.ai" @update:model-value="on_panel_model_update('ai', $event)" @after-leave="on_panel_after_leave('ai')" contained z-index="234">
       <v-card title="开发中"></v-card>
     </v-bottom-sheet>
 
@@ -661,12 +661,40 @@ export default {
       }
       this.rendition.themes.default(rules);
     },
+    on_panel_model_update: function (panel, open) {
+      // Escape/outside clicks update v-model without going through set_menu.
+      if (!open && this.menu.current_panel === panel) this.set_menu('hide');
+    },
+    on_panel_after_leave: function (panel) {
+      // An outgoing sibling must not steal focus from the incoming sheet.
+      if (panel !== this.panel_closing || Object.values(this.menu.panels).some(Boolean)) return;
+      if (this.show_login || this.show_user_center || this.show_theme_dialog || this.annotation_editor_open) return;
+      const usable = el => el?.isConnected && !el.disabled && !el.closest('[inert], .v-overlay') && el.getClientRects().length;
+      const fallback = this.$refs[this.panel_entry_ref]?.$el || this.$refs.panelEntryAnnotations?.$el;
+      const target = usable(this.panel_trigger) ? this.panel_trigger : fallback;
+      if (usable(target)) target.focus({ preventScroll: true });
+      this.panel_closing = null;
+      this.panel_trigger = null;
+    },
     set_menu: function (target_menu_panel) {
       var target = target_menu_panel;
       if (this.menu.current_panel == target) {
         if (this.menu.panels[target] === true) {
           target = 'hide';
         }
+      }
+
+      if (target === 'hide') {
+        if (this.menu.current_panel !== 'hide') this.panel_closing = this.menu.current_panel;
+      } else {
+        const active = document.activeElement;
+        const external = active?.matches('button, a[href], [tabindex]') && !active.closest('.v-overlay');
+        if (external || !this.panel_trigger) {
+          const refs = { settings: 'panelEntrySettings', toc: 'panelEntryToc', ai: 'panelEntryAi' };
+          this.panel_entry_ref = refs[target] || 'panelEntryAnnotations';
+          this.panel_trigger = external ? active : this.$refs[this.panel_entry_ref]?.$el;
+        }
+        this.panel_closing = null;
       }
 
       this.menu.value = (target == 'hide') ? undefined : target;
@@ -1739,6 +1767,9 @@ export default {
     },
     theme_mode: "day",
     toc_items: [],
+    panel_trigger: null,
+    panel_closing: null,
+    panel_entry_ref: 'panelEntryAnnotations',
     comments_request: 0,
     book_review_request: 0,
     comments: [],
