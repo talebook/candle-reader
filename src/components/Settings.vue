@@ -116,19 +116,21 @@
         </v-list-item>
 
 
-        <v-list-item class="my-2">
-            <v-row class="align-center">
-                <v-col cols="2">
-                    <span density="compact">章评*</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.show_comments == true" @click="set_and_emit('show_comments', true)">开启</v-btn>
-                        <v-btn :active="opt.show_comments == false" @click="set_and_emit('show_comments', false)">关闭</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
+        <fieldset class="note-settings">
+        <legend class="sr-only">笔记设置</legend>
+        <v-list-item v-for="item in note_options" :key="item.key" class="my-2" :data-setting="item.key">
+            <div class="d-flex align-center justify-space-between flex-wrap ga-2" :class="{ 'note-suboption': item.child, 'note-suboption-disabled': item.child && !opt.notes_enabled }">
+                <span :id="`setting-${item.key}`" :class="{ 'font-weight-medium': !item.child }">{{ item.label }}</span>
+                <v-btn-group variant="outlined" divided density="default" class="note-setting-buttons" role="group" :aria-labelledby="`setting-${item.key}`">
+                    <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === true"
+                        :aria-pressed="opt[item.key] === true" @click="set_and_emit(item.key, true)">开启</v-btn>
+                    <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === false"
+                        :aria-pressed="opt[item.key] === false" @click="set_and_emit(item.key, false)">关闭</v-btn>
+                </v-btn-group>
+            </div>
         </v-list-item>
+
+        </fieldset>
 
         <v-list-item class="my-2">
             <v-row class="align-center" no-gutters>
@@ -171,6 +173,8 @@ export default {
             letter_spacing: this.settings?.letter_spacing || this.opt.letter_spacing,
             brightness: this.settings?.brightness || this.opt.brightness,
             show_comments: this.settings?.show_comments ?? this.opt.show_comments,
+            notes_enabled: this.settings?.notes_enabled ?? this.opt.notes_enabled,
+            show_selection_toolbar: this.settings?.show_selection_toolbar ?? this.opt.show_selection_toolbar,
             paging_control: this.settings?.paging_control || this.opt.paging_control,
             wheel_paging: this.settings?.wheel_paging ?? this.opt.wheel_paging,
         };
@@ -213,11 +217,28 @@ export default {
             line_height: 1.5,
             letter_spacing: 0,
             brightness: 100,
+            show_comments: true,
+            notes_enabled: true,
+            show_selection_toolbar: true,
             paging_control: "mouse_and_keyboard",
             wheel_paging: true,
         },
+        note_options: [
+            { key: 'notes_enabled', label: '笔记' },
+            { key: 'show_comments', label: '加载章节段落评论', child: true },
+            { key: 'show_selection_toolbar', label: '选中后出现工具栏', child: true },
+        ],
         themes: THEMES,
     })
 }
 
 </script>
+
+<style scoped>
+.note-settings { border: 0; min-width: 0; margin-block: 16px; padding: 0; }
+.note-suboption { padding-inline-start: 16px; }
+.note-suboption-disabled { opacity: 0.6; }
+.note-setting-buttons { min-height: 44px; flex-shrink: 0; }
+.note-setting-buttons :deep(.v-btn) { min-height: 44px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+</style>

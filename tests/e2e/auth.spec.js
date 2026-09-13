@@ -7,7 +7,8 @@ test('未登录时「用户」面板展示登录表单', async ({ page }) => {
   await setupApiMock(page) // 游客态：/api/user/info 返回未登录
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByRole('button', { name: '点击登录，发表评论' }).click()
   await expect(page.getByText('登录到书评系统')).toBeVisible()
   await expect(page.getByRole('button', { name: '登录', exact: true })).toBeVisible()
@@ -25,7 +26,8 @@ test('输入邮箱密码登录成功后展示用户中心', async ({ page }) => 
   })
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByRole('button', { name: '点击登录，发表评论' }).click()
   await page.getByLabel('邮箱').fill(SAMPLE_USER.email)
   await page.getByLabel('密码').fill('secret123')
@@ -42,7 +44,8 @@ test('登录失败时展示错误提示且不进入用户中心', async ({ page 
   })
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByRole('button', { name: '点击登录，发表评论' }).click()
   await page.getByLabel('邮箱').fill('wrong@example.com')
   await page.getByLabel('密码').fill('bad')
@@ -58,7 +61,8 @@ test('忘记密码：重置成功展示提示', async ({ page }) => {
   })
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByRole('button', { name: '点击登录，发表评论' }).click()
   await page.getByRole('button', { name: '忘记密码?' }).click()
   await page.getByLabel('邮箱').fill('reset@example.com')
@@ -72,7 +76,8 @@ test('快速注册：注册成功展示提示并回到登录', async ({ page }) 
   })
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   await page.getByRole('button', { name: '点击登录，发表评论' }).click()
   await page.getByRole('button', { name: '快速注册' }).click()
   await page.getByLabel('邮箱').fill('newbie@example.com')
@@ -88,7 +93,8 @@ test('启动时已登录则「用户」面板直接展示用户中心', async ({
   })
   await gotoReader(page)
 
-  await page.getByRole('button', { name: '评论' }).click()
+  await page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ }).click()
+  await page.getByRole('button', { name: '本书评论', exact: true }).click()
   // 已登录：评论面板顶部展示用户行，点击进入用户中心
   await page.getByText(SAMPLE_USER.nickname).click()
   await expect(page.getByText('退出登录')).toBeVisible()

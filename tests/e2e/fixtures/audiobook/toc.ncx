@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="candle-audiobook-regression" /></head><docTitle><text>朗读定位回归书</text></docTitle><navMap><navPoint id="one" playOrder="1"><navLabel><text>第一章 绯红</text></navLabel><content src="index_split_002.html" /></navPoint><navPoint id="two" playOrder="2"><navLabel><text>下一章</text></navLabel><content src="next.xhtml" /></navPoint></navMap></ncx>

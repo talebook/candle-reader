@@ -12,8 +12,7 @@ test('页面加载后底部导航栏可见', async ({ page }) => {
   await gotoReader(page)
   await expect(page.getByRole('button', { name: '目录' })).toBeVisible()
   await expect(page.getByRole('button', { name: '设置' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '评论' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'AI' })).toBeVisible()
+  await expect(page.locator('.v-bottom-navigation button')).toHaveText(['目录', '夜晚', '笔记', '设置'])
 })
 
 test('点击「设置」打开设置面板', async ({ page }) => {
@@ -23,9 +22,9 @@ test('点击「设置」打开设置面板', async ({ page }) => {
   await expect(page.getByText('翻页', { exact: true })).toBeVisible()
 })
 
-test('点击「AI」打开开发中占位面板', async ({ page }) => {
+test('顶部更多选项打开开发中占位面板', async ({ page }) => {
   await gotoReader(page)
-  await page.getByRole('button', { name: 'AI', exact: true }).click()
+  await page.getByRole('button', { name: '更多选项', exact: true }).click()
   await expect(page.getByText('开发中')).toBeVisible()
 })
 
