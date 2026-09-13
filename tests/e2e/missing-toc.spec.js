@@ -55,6 +55,15 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
     expect(saved).toHaveLength(1)
     expect(saved[0]).toMatchObject({ cfi: selection.cfi, quote_text: selection.quote, chapter: label })
 
+    // Two distinct notes can refer to the same range. Keep both records while
+    // rendering only one removable epub.js mark for the shared CFI.
+    await page.evaluate(() => {
+      const key = 'candle-reader:annotations:v1:101'
+      const records = JSON.parse(localStorage[key])
+      records.push({ ...records[0], id: 'same-cfi-second-note', client_id: 'same-cfi-second-note', content: '同一选区的第二条笔记' })
+      localStorage[key] = JSON.stringify(records)
+    })
+
     await page.reload()
     await waitForReaderRendered(page)
     await page.evaluate(async cfi => {
@@ -68,6 +77,7 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(0)
     await row.getByRole('button', { name: '开启', exact: true }).click()
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
+    expect(await page.evaluate(() => JSON.parse(localStorage['candle-reader:annotations:v1:101']).length)).toBe(2)
     expect(errors).toEqual([])
   })
 }

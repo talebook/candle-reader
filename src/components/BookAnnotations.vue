@@ -1,19 +1,15 @@
 <template>
   <v-card class="annotation-panel" rounded="t-lg" :aria-busy="String(loading)">
-    <v-toolbar density="compact">
-      <v-toolbar-title id="annotation-panel-title">阅读笔记</v-toolbar-title>
-      <template v-slot:append>
-        <v-btn icon="mdi-refresh" title="刷新笔记" aria-label="刷新笔记" :loading="loading" @click="$emit('refresh')"></v-btn>
-        <v-btn icon="mdi-close" title="关闭笔记" aria-label="关闭笔记" @click="$emit('close')"></v-btn>
-      </template>
-    </v-toolbar>
-
-    <v-progress-linear v-if="loading" indeterminate></v-progress-linear>
-    <v-alert v-if="error" class="ma-3" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
-    <v-card-text v-if="!loading && annotations.length === 0" class="annotation-empty text-center">
+    <v-progress-linear v-if="loading" aria-label="正在加载笔记" indeterminate></v-progress-linear>
+    <v-alert v-else-if="error" class="ma-3" type="error" variant="tonal" density="compact">{{ error }}。请刷新笔记重试。</v-alert>
+    <v-card-text v-else-if="annotations.length === 0" class="annotation-empty text-center">
       <v-icon size="32">mdi-notebook-outline</v-icon>
       <div class="mt-2">还没有划线或笔记</div>
-      <div class="text-medium-emphasis mt-1">在正文中选择文字即可开始。</div>
+      <div v-if="toolbarEnabled" class="text-medium-emphasis mt-1">在正文中选择文字即可开始。</div>
+      <template v-else>
+        <div class="text-medium-emphasis mt-1">选区工具栏已关闭，开启后即可添加划线或笔记。</div>
+        <v-btn class="mt-3" variant="tonal" @click="$emit('open-settings')">前往设置开启工具栏</v-btn>
+      </template>
     </v-card-text>
     <v-list v-else aria-label="本书笔记列表" lines="three">
       <v-list-item
@@ -43,8 +39,9 @@
 <script>
 export default {
   name: 'BookAnnotations',
-  emits: ['close', 'locate', 'refresh'],
+  emits: ['locate', 'open-settings'],
   props: {
+    toolbarEnabled: { type: Boolean, default: true },
     annotations: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
     error: { type: String, default: '' },
@@ -56,7 +53,7 @@ export default {
 .annotation-panel { min-height: 220px; max-height: 82vh; overflow-y: auto; }
 .annotation-empty { padding-block: 36px; }
 .annotation-item + .annotation-item { border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
-.annotation-quote { white-space: normal; }
+.annotation-quote { white-space: normal; color: rgb(var(--v-theme-on-surface)); opacity: 1; }
 .annotation-content { color: rgb(var(--v-theme-on-surface)); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
 .annotation-location-hint { font-size: 12px; white-space: nowrap; }
 </style>

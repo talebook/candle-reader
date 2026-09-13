@@ -11,7 +11,7 @@
     </template>
       {{ is_debug_signal ? alert_msg : book_title }}
       <v-spacer></v-spacer>
-      <v-btn v-if="has_audiobook" @click="open_audiobook" title="听书"><v-icon>mdi-headphones</v-icon><span>听书</span></v-btn>
+      <v-btn v-if="has_audiobook" min-height="44" @click="open_audiobook" title="听书"><v-icon>mdi-headphones</v-icon><span>听书</span></v-btn>
       <v-btn icon title="更多选项" @click="set_menu('ai')"> <v-icon>mdi-dots-vertical</v-icon> </v-btn>
     </v-app-bar>
 
@@ -88,11 +88,18 @@
     <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet" max-height="90%" v-model="menu.panels.annotations" contained z-index="234"
       aria-label="阅读笔记">
       <v-card>
-        <v-card-title>笔记</v-card-title>
-        <div v-if="settings.notes_enabled" class="d-flex flex-wrap ga-2 px-4 pb-3" aria-label="笔记分类">
-          <v-btn variant="tonal" @click="load_annotations">划线笔记</v-btn>
+        <v-toolbar density="compact">
+          <v-toolbar-title>笔记</v-toolbar-title>
+          <template v-slot:append>
+            <v-btn v-if="settings.notes_enabled" icon="mdi-refresh" title="刷新笔记" aria-label="刷新笔记"
+              :loading="annotations_loading" @click="load_annotations"></v-btn>
+            <v-btn icon="mdi-close" title="关闭笔记" aria-label="关闭笔记" @click="set_menu('hide')"></v-btn>
+          </template>
+        </v-toolbar>
+        <div v-if="settings.notes_enabled" class="d-flex align-center flex-wrap ga-2 px-4 py-3" role="group" aria-label="笔记分类">
+          <span class="text-body-1 font-weight-medium me-auto">划线笔记</span>
           <v-btn variant="tonal" :disabled="!settings.show_comments || !current_toc" @click="open_chapter_comments">当前章评</v-btn>
-          <v-btn variant="tonal" aria-label="本书评论" :disabled="!settings.show_comments" @click="on_open_comments">
+          <v-btn variant="tonal" aria-label="本书评论" @click="on_open_comments">
             <v-badge v-if="unread_count" color="error" :content="unread_count">本书评论</v-badge>
             <span v-else>本书评论</span>
           </v-btn>
@@ -101,8 +108,8 @@
           <v-btn variant="text" @click="set_menu('settings')">前往设置</v-btn>
         </v-card-text>
         <v-card-text v-else-if="!settings.show_comments" class="py-0">章节段落评论已关闭，可在设置中开启。</v-card-text>
-        <book-annotations v-if="settings.notes_enabled" :annotations="annotations" :loading="annotations_loading" :error="annotations_error"
-          @close="set_menu('hide')" @refresh="load_annotations" @locate="locate_annotation"></book-annotations>
+        <book-annotations v-if="settings.notes_enabled" :annotations="annotations" :loading="annotations_loading" :error="annotations_error" :toolbar-enabled="settings.show_selection_toolbar"
+          @open-settings="set_menu('settings')" @locate="locate_annotation"></book-annotations>
       </v-card>
     </v-bottom-sheet>
 
@@ -390,7 +397,9 @@ export default {
     },
     render_annotation: function (annotation) {
       if (!this.settings.notes_enabled || !this.rendition || !annotation?.cfi) return;
-      const identity = this.annotation_identity(annotation);
+      // epub.js indexes highlights by CFI, so multiple records at one range
+      // must share one mark or remove(cfi) can leave an orphaned SVG behind.
+      const identity = String(annotation.cfi);
       if (identity && this.rendered_annotation_ids.has(identity)) return;
       try {
         this.rendition.annotations.highlight(
@@ -704,12 +713,12 @@ export default {
         this.clear_annotation_marks();
       } else if (!annotationsWereEnabled && this.settings.notes_enabled) {
         this.load_chapter_annotations(this.current_toc_title);
+        this.load_unread_count();
       }
 
       if (!this.settings.notes_enabled || !this.settings.show_selection_toolbar) this.hide_toolbar();
       if (commentsWereEnabled !== this.comments_enabled) {
         this.comments_request++;
-        this.book_reviews = [];
         this.comments = [];
         for (const contents of this.rendition.getContents()) {
           contents.document.querySelectorAll('.comment-icon').forEach(icon => icon.remove());
@@ -719,7 +728,14 @@ export default {
           const contents = this.rendition.getContents().find(c => c.document === this.current_toc.elem.ownerDocument);
           if (contents) this.load_comments_summary(contents, this.current_toc);
         }
-        if (['more', 'comments'].includes(this.menu.current_panel)) this.set_menu('annotations');
+        if (this.menu.current_panel === 'comments') this.set_menu('annotations');
+      }
+
+      if (annotationsWereEnabled && !this.settings.notes_enabled) {
+        this.book_review_request++;
+        this.book_reviews = [];
+        this.unread_count = 0;
+        if (this.menu.current_panel === 'more') this.set_menu('annotations');
       }
 
       // 应用亮度设置（作用于 #main，整屏含背景图与状态栏一起调光）
@@ -1222,7 +1238,7 @@ export default {
       if (this.comments_enabled) this.show_selected_comments(toc, 0, toc.cfi.toString());
     },
     on_open_comments: function () {
-      if (!this.comments_enabled) return;
+      if (!this.settings.notes_enabled) return;
       this.set_menu('more');
       this.load_book_reviews();
     },
@@ -1230,12 +1246,21 @@ export default {
       this.book_review_sort = sort;
       this.load_book_reviews();
     },
+    load_unread_count: function () {
+      if (!this.settings.notes_enabled) return;
+      const request = this.book_review_request;
+      return this.$backend('/api/review/me?count=true').then(rsp => {
+        if (!this.settings.notes_enabled || request !== this.book_review_request) return;
+        if (rsp.err === 'user.need_login') this.is_login = false;
+        else if (rsp.err === 'ok') this.unread_count = rsp.data.count || 0;
+      }).catch(error => console.error('获取未读消息数失败:', error));
+    },
     load_book_reviews: function () {
-      if (!this.comments_enabled || !this.book_id) return;
-      const request = this.comments_request;
+      if (!this.settings.notes_enabled || !this.book_id) return;
+      const request = this.book_review_request;
       const url = `/api/review/book/list?book_id=${this.book_id}&sort=${this.book_review_sort}`;
       this.$backend(url).then(rsp => {
-        if (!this.comments_enabled || request !== this.comments_request) return;
+        if (!this.settings.notes_enabled || request !== this.book_review_request) return;
         if (rsp.err == 'ok') {
           this.book_reviews = rsp.data.list || [];
         }
@@ -1251,6 +1276,8 @@ export default {
       this.show_user_center = false;
     },
     on_add_book_review: function (content) {
+      if (!this.settings.notes_enabled) return;
+      const request = this.book_review_request;
       // 「本书评论」锚定到当前章开始：chapter_id 由 summary 回填，cfi 取本章首元素。
       const toc = this.current_toc;
       if (!toc) {
@@ -1275,6 +1302,7 @@ export default {
         },
         body: JSON.stringify(review),
       }).then(rsp => {
+        if (!this.settings.notes_enabled || request !== this.book_review_request) return;
         if (rsp.err == 'ok') {
           this.book_reviews.push(rsp.data);
           alert("评论成功")
@@ -1576,23 +1604,10 @@ export default {
     }, 10000);
 
     this.loading = true;
-    const url = `/api/review/me?count=true`;
-    if (this.comments_enabled) this.$backend(url).then(rsp => {
-      if (rsp.err == "user.need_login") {
-        this.is_login = false;
-      } else if (rsp.err == "ok") {
-        this.unread_count = rsp.data.count;
-      } else if (rsp.err === "network_error") {
-        // 处理网络错误，不改变用户登录状态
-        console.log('网络错误，无法获取未读消息数，保持当前登录状态');
-      }
-    })
-    .catch(error => {
-      console.error('获取未读消息数失败:', error);
-    })
+    this.load_unread_count();
 
     this.$backend(`/api/user/info`).then(rsp => {
-      if (!this.comments_enabled) this.is_login = rsp.err === "ok";
+      if (!this.settings.notes_enabled) this.is_login = rsp.err === "ok";
       if (rsp.err == "ok") {
         this.user = rsp.data;
       } else if (rsp.err === "network_error") {
@@ -1725,6 +1740,7 @@ export default {
     theme_mode: "day",
     toc_items: [],
     comments_request: 0,
+    book_review_request: 0,
     comments: [],
     annotations: [],
     annotations_loading: false,

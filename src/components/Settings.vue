@@ -116,10 +116,12 @@
         </v-list-item>
 
 
+        <fieldset class="note-settings">
+        <legend class="sr-only">笔记设置</legend>
         <v-list-item v-for="item in note_options" :key="item.key" class="my-2" :data-setting="item.key">
-            <div class="d-flex align-center justify-space-between ga-2">
-                <span>{{ item.label }}</span>
-                <v-btn-group variant="outlined" divided density="comfortable" :aria-label="item.label">
+            <div class="d-flex align-center justify-space-between flex-wrap ga-2" :class="{ 'note-suboption': item.child, 'note-suboption-disabled': item.child && !opt.notes_enabled }">
+                <span :id="`setting-${item.key}`" :class="{ 'font-weight-medium': !item.child }">{{ item.label }}</span>
+                <v-btn-group variant="outlined" divided density="default" class="note-setting-buttons" role="group" :aria-labelledby="`setting-${item.key}`">
                     <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === true"
                         :aria-pressed="opt[item.key] === true" @click="set_and_emit(item.key, true)">开启</v-btn>
                     <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === false"
@@ -127,6 +129,8 @@
                 </v-btn-group>
             </div>
         </v-list-item>
+
+        </fieldset>
 
         <v-list-item class="my-2">
             <v-row class="align-center" no-gutters>
@@ -229,3 +233,12 @@ export default {
 }
 
 </script>
+
+<style scoped>
+.note-settings { border: 0; min-width: 0; margin-block: 16px; padding: 0; }
+.note-suboption { padding-inline-start: 16px; }
+.note-suboption-disabled { opacity: 0.6; }
+.note-setting-buttons { min-height: 44px; flex-shrink: 0; }
+.note-setting-buttons :deep(.v-btn) { min-height: 44px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+</style>

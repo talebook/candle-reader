@@ -44,7 +44,9 @@ for (const enabled of [true, false]) {
         })
         await expect(page.locator('#comments-toolbar')).toBeVisible({ visible: enabled && toolbar })
         await expect(page.locator('.v-bottom-navigation button')).toHaveText(['目录', '夜晚', '笔记', '设置'])
-        if (!enabled || !comments) expect(calls.filter(c => /review\/(summary|list|book\/list|me)/.test(c.url))).toEqual([])
+        if (!enabled || !comments) expect(calls.filter(c => /review\/(summary|list)/.test(c.url))).toEqual([])
+        if (!enabled) expect(calls.filter(c => /review\/(book\/list|me)/.test(c.url))).toEqual([])
+        else await expect.poll(() => calls.some(c => c.url.includes('review/book/list'))).toBe(true)
         if (enabled && comments) await expect.poll(() => calls.some(c => c.url.includes('review/summary'))).toBe(true)
         await openPanel(page, 'annotations')
         if (!enabled) await expect(page.getByText('笔记已关闭，已有数据会保留。')).toBeVisible()
@@ -64,7 +66,9 @@ test('关闭期间迟到的评论响应不能恢复图标或打开面板', async
     const contents = r.rendition.getContents()[0]
     const toc = r.current_toc
     delete toc.load_time
-    r.$backend = () => new Promise(resolve => { window.finishReview = resolve })
+    r.$backend = url => url.startsWith('/api/review/summary')
+      ? new Promise(resolve => { window.finishReview = resolve })
+      : Promise.resolve({ err: 'ok', data: { count: 0 } })
     window.pendingReview = r.load_comments_summary(contents, toc)
     r.update_settings({ ...r.settings, notes_enabled: false })
     r.update_settings({ ...r.settings, notes_enabled: true, show_comments: false })
