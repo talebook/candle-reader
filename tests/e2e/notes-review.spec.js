@@ -1,4 +1,6 @@
 const { test, expect } = require('@playwright/test')
+const fs = require('node:fs')
+const path = require('node:path')
 const { setupApiMock } = require('./helpers/mock-api')
 const { gotoReader, openPanel, waitForReaderRendered, readState } = require('./helpers/reader')
 test.use({ viewport: { width: 402, height: 874 }, deviceScaleFactor: 3 })
@@ -29,6 +31,12 @@ test('笔记开关有命名group、主从缩进和44px命中区域', async ({ pa
   await setupApiMock(page)
   await gotoReader(page)
   await openPanel(page, 'settings')
+  if (process.env.TB199_EVIDENCE_DIR) {
+    await page.locator('[data-setting=show_selection_toolbar]').scrollIntoViewIfNeeded()
+    const directory = path.resolve(process.env.TB199_EVIDENCE_DIR)
+    fs.mkdirSync(directory, { recursive: true })
+    await page.screenshot({ path: path.join(directory, 'tb199-settings-402x874.png') })
+  }
   for (const name of ['笔记', '加载章节段落评论', '选中后出现工具栏']) {
     const group = page.getByRole('group', { name, exact: true })
     await expect(group).toBeVisible()

@@ -4,9 +4,9 @@
     <v-alert v-else-if="error" class="ma-3" type="error" variant="tonal" density="compact">{{ error }}。请刷新笔记重试。</v-alert>
     <v-card-text v-else-if="annotations.length === 0" class="annotation-empty text-center">
       <v-icon size="32">mdi-notebook-outline</v-icon>
-      <div class="mt-2">还没有划线或笔记</div>
-      <div v-if="toolbarEnabled" class="text-medium-emphasis mt-1">在正文中选择文字即可开始。</div>
-      <template v-else>
+      <div class="mt-2">{{ selectionCfi ? '此处还没有笔记' : '还没有划线或笔记' }}</div>
+      <div v-if="toolbarEnabled && !selectionCfi" class="text-medium-emphasis mt-1">在正文中选择文字即可开始。</div>
+      <template v-else-if="!toolbarEnabled && !selectionCfi">
         <div class="text-medium-emphasis mt-1">选区工具栏已关闭，开启后即可添加划线或笔记。</div>
         <v-btn class="mt-3" variant="tonal" @click="$emit('open-settings')">前往设置开启工具栏</v-btn>
       </template>
@@ -25,6 +25,7 @@
           </v-icon>
         </template>
         <v-list-item-title>{{ annotation.chapter || '未命名章节' }}</v-list-item-title>
+        <div class="annotation-meta text-medium-emphasis">{{ annotation.annotation_type === 'highlight' ? '划线笔记' : '文字笔记' }} · {{ annotation.is_private === false ? '公开' : '私密' }}</div>
         <v-list-item-subtitle v-if="annotation.quote_text" class="annotation-quote">{{ annotation.quote_text }}</v-list-item-subtitle>
         <div v-if="annotation.content" class="annotation-content mt-1">{{ annotation.content }}</div>
         <template v-slot:append>
@@ -42,6 +43,7 @@ export default {
   emits: ['locate', 'open-settings'],
   props: {
     toolbarEnabled: { type: Boolean, default: true },
+    selectionCfi: { type: String, default: '' },
     annotations: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
     error: { type: String, default: '' },
@@ -55,5 +57,6 @@ export default {
 .annotation-item + .annotation-item { border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
 .annotation-quote { white-space: normal; color: rgb(var(--v-theme-on-surface)); opacity: 1; }
 .annotation-content { color: rgb(var(--v-theme-on-surface)); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.annotation-meta { font-size: 12px; line-height: 1.4; }
 .annotation-location-hint { font-size: 12px; white-space: nowrap; }
 </style>

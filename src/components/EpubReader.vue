@@ -97,7 +97,8 @@
           </template>
         </v-toolbar>
         <div v-if="settings.notes_enabled" class="d-flex align-center flex-wrap ga-2 px-4 py-3" role="group" aria-label="笔记分类">
-          <span class="text-body-1 font-weight-medium me-auto">划线笔记</span>
+          <span class="text-body-1 font-weight-medium me-auto">{{ selection_annotation_cfi ? '此处笔记' : '笔记' }}</span>
+          <v-btn v-if="selection_annotation_cfi" variant="tonal" @click="on_open_annotations">查看全部</v-btn>
           <v-btn variant="tonal" :disabled="!settings.show_comments || !current_toc" @click="open_chapter_comments">当前章评</v-btn>
           <v-btn variant="tonal" aria-label="本书评论" @click="on_open_comments">
             <v-badge v-if="unread_count" color="error" :content="unread_count">本书评论</v-badge>
@@ -108,7 +109,7 @@
           <v-btn variant="text" @click="set_menu('settings')">前往设置</v-btn>
         </v-card-text>
         <v-card-text v-else-if="!settings.show_comments" class="py-0">章节段落评论已关闭，可在设置中开启。</v-card-text>
-        <book-annotations v-if="settings.notes_enabled" :annotations="annotations" :loading="annotations_loading" :error="annotations_error" :toolbar-enabled="settings.show_selection_toolbar"
+        <book-annotations v-if="settings.notes_enabled" :annotations="visible_annotations" :loading="annotations_loading" :error="annotations_error" :toolbar-enabled="settings.show_selection_toolbar" :selection-cfi="selection_annotation_cfi"
           @open-settings="set_menu('settings')" @locate="locate_annotation"></book-annotations>
       </v-card>
     </v-bottom-sheet>
@@ -118,20 +119,21 @@
     </v-bottom-sheet>
 
     <v-dialog v-model="annotation_editor_open" class="annotation-editor-dialog" max-width="520"
-      aria-labelledby="annotation-editor-title" @after-leave="restore_reader_focus">
+      aria-labelledby="annotation-editor-title" @after-leave="on_annotation_editor_closed">
       <v-card>
-        <v-card-title id="annotation-editor-title">添加笔记</v-card-title>
+        <v-card-title id="annotation-editor-title">写想法</v-card-title>
         <v-card-text>
           <blockquote class="annotation-editor-quote">{{ selected_location.quote_text }}</blockquote>
           <v-textarea ref="annotationEditorContent" v-model="annotation_editor_content" class="mt-4" label="笔记内容"
             rows="4" autofocus :error-messages="annotation_editor_error" @update:model-value="annotation_editor_error = ''"></v-textarea>
-          <v-checkbox v-if="annotation_repository?.source === 'callback'" v-model="annotation_editor_public"
-            label="公开给其他用户" hide-details></v-checkbox>
+          <v-select v-model="annotation_editor_private" class="annotation-visibility" label="公开范围" aria-label="公开范围"
+            :items="[{ title: '公开', value: false }, { title: '私密', value: true }]" hide-details></v-select>
+          <p v-if="annotation_repository?.source === 'localStorage'" class="text-caption mt-2 mb-0">本地模式的笔记仅保存在当前浏览器。</p>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn @click="annotation_editor_open = false">取消</v-btn>
-          <v-btn color="primary" :loading="annotation_saving" @click="save_note">保存笔记</v-btn>
+          <v-btn color="primary" :loading="annotation_saving" @click="save_note">保存</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -142,21 +144,25 @@
       <template v-slot:actions><v-btn variant="text" @click="annotation_feedback_visible = false">关闭</v-btn></template>
     </v-snackbar>
 
+    <!-- 选区预览只表示当前选择，保存成功后才绘制永久笔记标记。 -->
+    <div v-for="(rect, index) in selection_preview_rects" :key="index" class="selection-preview" :style="rect" aria-hidden="true"></div>
+
     <!-- 文字选择工具栏：划线与笔记 UI 完全由阅读器负责，宿主只注入数据回调。 -->
     <div v-show="is_toolbar_visible()" id="comments-toolbar" ref="selectionToolbar" role="group"
       aria-label="选中文字操作" :style="`left: ${toolbar_left}px; top: ${toolbar_top}px;`">
       <v-toolbar density="compact" border dense floating elevation="10" rounded>
+        <v-btn @click="copy_selection">复制</v-btn>
+        <v-divider vertical></v-divider>
         <template v-if="settings.notes_enabled">
           <v-btn :loading="annotation_saving" @click="save_highlight">划线</v-btn>
           <v-divider vertical></v-divider>
-          <v-btn :disabled="annotation_saving" @click="open_note_editor">笔记</v-btn>
+          <v-btn :disabled="annotation_saving" @click="open_note_editor">写想法</v-btn>
+          <v-divider vertical></v-divider>
+          <v-btn :disabled="annotation_saving" @click="on_view_selection_notes">看想法</v-btn>
           <v-divider vertical></v-divider>
         </template>
-        <v-btn v-if="comments_enabled" @click="on_click_toolbar_comments">发段评</v-btn>
-        <v-divider vertical></v-divider>
         <v-btn v-if="has_audiobook" @click="on_click_toolbar_listen">从这里听</v-btn>
         <v-divider v-if="has_audiobook" vertical></v-divider>
-        <v-btn @click="copy_selection">复制</v-btn>
       </v-toolbar>
     </div>
 
@@ -233,6 +239,7 @@
 </template>
 
 <script>
+/* global ePub */
 import { normalizeNoteSettings } from '@/note-settings'
 import Settings from './Settings.vue'
 import BookToc from './BookToc.vue'
@@ -269,6 +276,11 @@ export default {
   },
   computed: {
     comments_enabled: function () { return this.settings.notes_enabled && this.settings.show_comments; },
+    visible_annotations: function () {
+      return this.selection_annotation_cfi
+        ? this.annotations.filter(annotation => annotation.cfi === this.selection_annotation_cfi)
+        : this.annotations;
+    },
     has_audiobook: function () {
       return Boolean(this.audiobook_edition_id || this.audiobook_manifest_url);
     },
@@ -459,6 +471,13 @@ export default {
       }
     },
     on_open_annotations: function () {
+      this.selection_annotation_cfi = '';
+      this.set_menu('annotations');
+      if (this.menu.current_panel === 'annotations') this.load_annotations();
+    },
+    on_view_selection_notes: function () {
+      this.selection_annotation_cfi = this.selected_location?.cfi || '';
+      this.hide_toolbar();
       this.set_menu('annotations');
       if (this.menu.current_panel === 'annotations') this.load_annotations();
     },
@@ -504,7 +523,7 @@ export default {
         this.hide_toolbar();
         try { passage.contents?.window?.getSelection()?.removeAllRanges(); } catch (error) { /* noop */ }
         if (this.selected_location === passage) this.selected_location = {};
-        this.show_annotation_feedback(annotationType === 'highlight' ? '划线已保存' : '笔记已保存');
+        if (annotationType !== 'highlight') this.show_annotation_feedback('笔记已保存');
         return annotation;
       } catch (error) {
         this.show_annotation_feedback(`保存失败：${error.message || '请稍后重试'}`, true);
@@ -518,10 +537,11 @@ export default {
     },
     open_note_editor: function () {
       if (!this.settings.notes_enabled || !this.selected_location?.quote_text) return;
-      this.hide_toolbar();
+      this.hide_toolbar(true);
+      this.annotation_editor_location = this.selected_location;
       this.annotation_editor_content = '';
       this.annotation_editor_error = '';
-      this.annotation_editor_public = false;
+      this.annotation_editor_private = false;
       this.annotation_editor_open = true;
     },
     save_note: async function () {
@@ -531,8 +551,18 @@ export default {
         this.$nextTick(() => this.$refs.annotationEditorContent?.focus());
         return;
       }
-      const annotation = await this.save_annotation('note', content, !this.annotation_editor_public);
+      const annotation = await this.save_annotation('note', content, this.annotation_editor_private);
       if (annotation) this.annotation_editor_open = false;
+    },
+    on_annotation_editor_closed: function () {
+      const closingLocation = this.annotation_editor_location;
+      this.annotation_editor_location = null;
+      if (this.selected_location === closingLocation) {
+        this.clear_selection_preview();
+        try { closingLocation?.contents?.window?.getSelection()?.removeAllRanges(); } catch (error) { /* noop */ }
+        this.selected_location = {};
+      }
+      if (!this.selected_location?.cfi) this.restore_reader_focus();
     },
     restore_reader_focus: function () {
       document.querySelector('#reader iframe')?.focus();
@@ -785,10 +815,10 @@ export default {
       this.suspend_audiobook_follow();
       this.rendition.display(item.id);
     },
-    on_mousedown: function (mouse_event) {
+    on_mousedown: function () {
       this.mouse_down_time = new Date();
     },
-    on_mouseup: function (mouse_event) {
+    on_mouseup: function () {
       const t = new Date() - this.mouse_down_time;
       if (t > 600) {
         this.check_if_selected_content = true;
@@ -998,8 +1028,22 @@ export default {
 
       return segment_id;
     },
-    hide_toolbar: function () {
+    clear_selection_preview: function () {
+      this.selection_preview_rects = [];
+    },
+    update_selection_preview: function (range, iframeRect) {
+      this.selection_preview_rects = Array.from(range.getClientRects())
+        .filter(rect => rect.width > 0 && rect.height > 0)
+        .map(rect => ({
+          left: `${iframeRect.left + rect.left}px`,
+          top: `${iframeRect.top + rect.top}px`,
+          width: `${rect.width}px`,
+          height: `${rect.height}px`,
+        }));
+    },
+    hide_toolbar: function (preserveSelection = false) {
       this.toolbar_left = -999;
+      if (!preserveSelection) this.clear_selection_preview();
     },
     show_toolbar: function (rect, iframe_rect) {
       if (!this.settings.notes_enabled || !this.settings.show_selection_toolbar) return;
@@ -1061,6 +1105,7 @@ export default {
 
       // 把 toolbar 移动到段落附近
       const view = this.rendition.views()._views.filter( view => { return view.index == contents.sectionIndex})[0]
+      this.update_selection_preview(range, view.iframe.getBoundingClientRect());
       this.show_toolbar(p.getBoundingClientRect(), view.iframe.getBoundingClientRect());
     },
     on_click_toolbar_comments: function () {
@@ -1135,7 +1180,6 @@ export default {
     },
     debug_signals: function () {
       if (!this.is_debug_signal) return;
-      var signals = ['click', 'selected', 'touchstart', 'touchend', 'touchmove'];
       var signals = ["added", "attach", "attached", "axis", "changed", "detach", "displayed", "displayerror", "expand", "hidden", "layout", "linkClicked", "loaderror", "locationChanged", "markClicked", "openFailed", "orientationchange", "relocated", "removed", "rendered", "resize", "resized", "scroll", "scrolled", "selected", "selectedRange", "shown", "started", "updated", "writingMode", "mouseup", "mousedown", "mousemove", "click", "touchend", "touchstart", "touchmove"]
       signals.forEach(sig => {
         this.rendition.on(sig, (e) => {
@@ -1419,7 +1463,7 @@ export default {
         console.error('请求过程中出现错误：', error);
       }).finally(() => {
         if (this.comments_enabled && request === this.comments_request) this.add_comment_icons(contents, toc);
-      });;
+      });
     },
     add_comment_icons: function (contents, toc) {
       console.log("添加评论图标和计数器：", toc.label.trim())
@@ -1782,9 +1826,12 @@ export default {
     chapter_annotation_count: 0,
     annotation_saving: false,
     annotation_editor_open: false,
+    annotation_editor_location: null,
     annotation_editor_content: "",
     annotation_editor_error: "",
-    annotation_editor_public: false,
+    annotation_editor_private: false,
+    selection_annotation_cfi: '',
+    selection_preview_rects: [],
     annotation_feedback_visible: false,
     annotation_feedback_message: "",
     annotation_feedback_error: false,
@@ -1862,6 +1909,16 @@ export default {
   overflow-x: auto;
   border-radius: 4px;
 }
+
+.selection-preview {
+  position: fixed;
+  z-index: 998;
+  pointer-events: none;
+  background: rgba(56, 121, 219, 0.34);
+  border-radius: 2px;
+}
+
+.annotation-visibility { max-width: 180px; margin-top: 12px; }
 
 .annotation-editor-quote {
   max-height: 92px;
