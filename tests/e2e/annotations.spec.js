@@ -189,6 +189,7 @@ test('划线等待写入成功才显示标记，成功后不弹保存提示', as
 
 test('笔记面板提供空状态、加载状态和可重试错误', async ({ page }) => {
   await gotoReader(page)
+  await waitForReaderRendered(page)
   await notesButton(page).click()
   await expect(page.getByText('还没有划线或笔记')).toBeVisible()
   await expect(page.getByText('在正文中选择文字即可开始。')).toBeVisible()

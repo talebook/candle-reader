@@ -116,12 +116,10 @@
         </v-list-item>
 
 
-        <fieldset class="note-settings">
-        <legend class="sr-only">笔记设置</legend>
         <v-list-item v-for="item in note_options" :key="item.key" class="my-2" :data-setting="item.key">
-            <v-row class="align-center" :class="{ 'note-suboption': item.child, 'note-suboption-disabled': item.child && !opt.notes_enabled }">
-                <v-col cols="5"><span :id="`setting-${item.key}`">{{ item.label }}</span></v-col>
-                <v-col cols="7"><v-btn-group variant="outlined" divided density="compact" class="note-setting-buttons" role="group" :aria-labelledby="`setting-${item.key}`">
+            <v-row class="align-center" :class="{ 'note-suboption-disabled': item.child && !opt.notes_enabled }">
+                <v-col cols="2"><span class="note-setting-label" :id="`setting-${item.key}`" :aria-label="item.description || item.label" :title="item.description || item.label">{{ item.label }}</span></v-col>
+                <v-col cols="10"><v-btn-group variant="outlined" divided density="compact" role="group" :aria-labelledby="`setting-${item.key}`">
                     <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === true"
                         :aria-pressed="opt[item.key] === true" @click="set_and_emit(item.key, true)">开启</v-btn>
                     <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === false"
@@ -129,8 +127,6 @@
                 </v-btn-group></v-col>
             </v-row>
         </v-list-item>
-
-        </fieldset>
 
         <v-list-item class="my-2">
             <v-row class="align-center" no-gutters>
@@ -225,8 +221,8 @@ export default {
         },
         note_options: [
             { key: 'notes_enabled', label: '笔记' },
-            { key: 'show_comments', label: '加载章节段落评论', child: true },
-            { key: 'show_selection_toolbar', label: '选中后出现工具栏', child: true },
+            { key: 'show_comments', label: '段落评论', description: '加载章节段落评论', child: true },
+            { key: 'show_selection_toolbar', label: '选区工具栏', description: '选中后出现工具栏', child: true },
         ],
         themes: THEMES,
     })
@@ -235,10 +231,6 @@ export default {
 </script>
 
 <style scoped>
-.note-settings { border: 0; min-width: 0; margin: 0; padding: 0; }
-.note-suboption { padding-inline-start: 16px; }
+.note-setting-label { overflow-wrap: anywhere; }
 .note-suboption-disabled { opacity: 0.6; }
-.note-setting-buttons { min-height: 44px; }
-.note-setting-buttons :deep(.v-btn) { min-height: 44px; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 </style>

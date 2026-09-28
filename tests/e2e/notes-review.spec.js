@@ -27,7 +27,7 @@ test('章段子开关不限制本书评论，主开关使迟到书评失效', as
   await expect(page.locator('.book-review-card')).toBeHidden()
 })
 
-test('笔记开关有命名group、主从缩进和44px命中区域', async ({ page }) => {
+test('笔记开关有命名group并与原有设置行对齐', async ({ page }) => {
   await setupApiMock(page)
   await gotoReader(page)
   await openPanel(page, 'settings')
@@ -40,10 +40,11 @@ test('笔记开关有命名group、主从缩进和44px命中区域', async ({ pa
   for (const name of ['笔记', '加载章节段落评论', '选中后出现工具栏']) {
     const group = page.getByRole('group', { name, exact: true })
     await expect(group).toBeVisible()
-    for (const button of await group.getByRole('button').all()) expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44)
+    for (const button of await group.getByRole('button').all()) expect((await button.boundingBox()).height).toBe(36)
   }
-  const geometry = await page.evaluate(() => ['notes_enabled', 'show_comments'].map(key => document.querySelector(`#setting-${key}`).getBoundingClientRect().x))
-  expect(geometry[1] - geometry[0]).toBe(16)
+  const geometry = await page.evaluate(() => ['notes_enabled', 'show_comments', 'show_selection_toolbar'].map(key => document.querySelector(`#setting-${key}`).getBoundingClientRect().x))
+  expect(geometry[1]).toBe(geometry[0])
+  expect(geometry[2]).toBe(geometry[0])
   const off = page.getByRole('group', { name: '笔记', exact: true }).getByRole('button', { name: '关闭' })
   await off.focus()
   await page.keyboard.press('Enter')
