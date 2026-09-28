@@ -77,3 +77,34 @@ test('点击主题按钮在白天/夜晚间切换 @epub', async ({ page }) => {
   await page.getByRole('button', { name: /夜晚|白天/ }).click()
   await expect.poll(() => readState(page, 'settings').then(s => s.theme_mode)).not.toBe(before)
 })
+
+// 「笔记入口」开关：开关值既保存在阅读器设置里，也透出到 <html data-candle-reader-notes-entry>，
+// 宿主（talebook creader.html 的浮动「阅读笔记」入口）据此显隐。
+test('设置面板可切换笔记入口并透出给宿主', async ({ page }) => {
+  await gotoReader(page)
+  // 默认开启：宿主浮动入口保持显示
+  await expect(page.locator('html')).toHaveAttribute('data-candle-reader-notes-entry', 'on')
+
+  await page.getByRole('button', { name: '设置' }).click()
+  const notesRow = page.locator('.v-list-item').filter({ hasText: '笔记入口' })
+  await notesRow.getByRole('button', { name: '隐藏' }).click()
+  await expect.poll(() => readState(page, 'settings').then(s => s.notes_entry)).toBe(false)
+  await expect(page.locator('html')).toHaveAttribute('data-candle-reader-notes-entry', 'off')
+
+  await notesRow.getByRole('button', { name: '显示' }).click()
+  await expect.poll(() => readState(page, 'settings').then(s => s.notes_entry)).toBe(true)
+  await expect(page.locator('html')).toHaveAttribute('data-candle-reader-notes-entry', 'on')
+})
+
+test('关闭笔记入口后刷新仍保持关闭', async ({ page }) => {
+  await gotoReader(page)
+  await page.getByRole('button', { name: '设置' }).click()
+  const notesRow = page.locator('.v-list-item').filter({ hasText: '笔记入口' })
+  await notesRow.getByRole('button', { name: '隐藏' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-candle-reader-notes-entry', 'off')
+
+  await page.reload()
+  await page.getByRole('button', { name: '目录' }).waitFor({ state: 'visible' })
+  await expect(page.locator('html')).toHaveAttribute('data-candle-reader-notes-entry', 'off')
+  await expect.poll(() => readState(page, 'settings').then(s => s.notes_entry)).toBe(false)
+})

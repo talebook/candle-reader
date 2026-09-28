@@ -459,6 +459,13 @@ export default {
       // 保存设置到localStorage
       localStorage.setItem('readerSettings', JSON.stringify(this.settings));
     },
+    apply_notes_entry: function () {
+      // 「笔记入口」偏好透出给宿主：宿主自带的阅读笔记入口据此显隐。
+      // Talebook 的 creader.html 用 html[data-candle-reader-notes-entry="off"] #annotation-toggle 隐藏浮动入口。
+      // 读取器自己渲染笔记入口时同样以此为唯一开关，避免两处入口各自为政。
+      document.documentElement.dataset.candleReaderNotesEntry =
+        this.settings.notes_entry === false ? 'off' : 'on';
+    },
     update_settings: function (opt) {
       if (opt.flow != this.settings.flow) {
         // FIXME 切换后，翻页到下一章时css会丢失
@@ -481,6 +488,9 @@ export default {
       if (opt.font_size !== undefined) {
         this.rendition.themes.fontSize(opt.font_size + 'px');
       }
+
+      // 应用「笔记入口」显隐偏好（宿主浮动入口同步）
+      this.apply_notes_entry();
 
       this.save_settings();
     },
@@ -1260,6 +1270,8 @@ export default {
       }
       console.log("加载设置：", savedSettings);
     }
+    // 首屏即把「笔记入口」偏好透出给宿主，避免宿主浮动入口先出现再被隐藏
+    this.apply_notes_entry();
     this.is_debug_signal = this.debug;
     this.is_debug_click = this.debug;
 
@@ -1389,6 +1401,7 @@ export default {
       show_comments: true,
       paging_control: "mouse_and_keyboard",
       wheel_paging: true,
+      notes_entry: true,
     },
 
     wide_screen: 1000, // 宽屏尺寸
