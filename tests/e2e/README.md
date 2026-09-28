@@ -41,6 +41,9 @@ npx playwright test comments-login   # 只跑某个 spec
 | 再次点击同一导航项可关闭面板 | `set_menu` 的 toggle 行为 |
 | 设置面板可调整字号 | 点 A+ 后 `settings.font_size` +2 |
 | 设置面板可切换翻页模式 `@epub`（跳过） | 点「上下滑动」后 `settings.flow==='scrolled'` |
+| 设置面板可切换滚轮翻页 | 点「关闭」后 `settings.wheel_paging===false` |
+| 设置面板可切换笔记入口并透出给宿主 | 切换后 `<html data-candle-reader-notes-entry>` 在 `on/off` 间变化 |
+| 关闭笔记入口后刷新仍保持关闭 | 偏好写入 `readerSettings`，重载后仍为 `off` |
 | 点击主题按钮在白天/夜晚间切换 `@epub`（跳过） | `settings.theme_mode` 翻转 |
 
 ### auth.spec.js — 登录 / 注册 / 找回密码

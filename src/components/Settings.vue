@@ -119,6 +119,20 @@
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
+                    <span density="compact">笔记入口</span>
+                </v-col>
+                <v-col cols="10">
+                    <v-btn-group variant="outlined" divided density="compact">
+                        <v-btn :active="opt.notes_entry == true" @click='set_and_emit("notes_entry", true)'>显示</v-btn>
+                        <v-btn :active="opt.notes_entry == false" @click='set_and_emit("notes_entry", false)'>隐藏</v-btn>
+                    </v-btn-group>
+                </v-col>
+            </v-row>
+        </v-list-item>
+
+        <v-list-item class="my-2">
+            <v-row class="align-center">
+                <v-col cols="2">
                     <span density="compact">章评*</span>
                 </v-col>
                 <v-col cols="10">
@@ -173,6 +187,7 @@ export default {
             show_comments: this.settings?.show_comments ?? this.opt.show_comments,
             paging_control: this.settings?.paging_control || this.opt.paging_control,
             wheel_paging: this.settings?.wheel_paging ?? this.opt.wheel_paging,
+            notes_entry: this.settings?.notes_entry ?? this.opt.notes_entry,
         };
     },
     methods: {
@@ -215,6 +230,7 @@ export default {
             brightness: 100,
             paging_control: "mouse_and_keyboard",
             wheel_paging: true,
+            notes_entry: true,
         },
         themes: THEMES,
     })
