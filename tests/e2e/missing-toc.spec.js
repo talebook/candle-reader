@@ -5,7 +5,7 @@ const { HARNESS_URL, openPanel, waitForReaderRendered } = require('./helpers/rea
 test.use({ viewport: { width: 402, height: 874 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
 
 for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.xhtml', '正文 3']]) {
-  test(`缺目录 ${chapter} 保留真实选区、刷新和开关后的标记`, async ({ page }) => {
+  test(`缺目录 ${chapter} 保存整段笔记、刷新和开关后的标记`, async ({ page }) => {
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
     await setupApiMock(page)
@@ -43,7 +43,10 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
       const selection = contents.document.getSelection()
       selection.removeAllRanges()
       selection.addRange(range)
-      return { cfi: contents.cfiFromRange(range), quote: range.toString() }
+      const paragraphRange = contents.document.createRange()
+      paragraphRange.setStart(element.firstChild, 0)
+      paragraphRange.setEnd(element.firstChild, element.firstChild.length)
+      return { cfi: contents.cfiFromRange(paragraphRange), quote: element.firstChild.textContent }
     }, chapter)
     const toolbar = page.locator('#comments-toolbar')
     await expect(toolbar).toBeVisible()
@@ -73,9 +76,9 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
     await openPanel(page, 'settings')
     const row = page.locator('[data-setting=notes_enabled]')
-    await row.getByRole('button', { name: '关闭', exact: true }).click()
+    await row.getByRole('switch').uncheck()
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(0)
-    await row.getByRole('button', { name: '开启', exact: true }).click()
+    await row.getByRole('switch').check()
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
     expect(await page.evaluate(() => JSON.parse(localStorage['candle-reader:annotations:v1:101']).length)).toBe(2)
     expect(errors).toEqual([])

@@ -1,6 +1,6 @@
 <template>
     <!-- 设置: 分别列出亮度、字体、背景、翻页、其他 五行设置项  -->
-    <v-list density="compact">
+    <v-list class="reader-settings" density="compact">
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
@@ -101,31 +101,15 @@
             </v-row>
         </v-list-item>
 
-        <v-list-item class="my-2">
-            <v-row class="align-center">
-                <v-col cols="2">
-                    <span density="compact">滚轮翻页</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.wheel_paging == true" @click='set_and_emit("wheel_paging", true)'>开启</v-btn>
-                        <v-btn :active="opt.wheel_paging == false" @click='set_and_emit("wheel_paging", false)'>关闭</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
-        </v-list-item>
-
-
-        <v-list-item v-for="item in note_options" :key="item.key" class="my-2" :data-setting="item.key">
-            <v-row class="align-center" :class="{ 'note-suboption-disabled': item.child && !opt.notes_enabled }">
-                <v-col cols="2"><span class="note-setting-label" :id="`setting-${item.key}`" :aria-label="item.description || item.label" :title="item.description || item.label">{{ item.label }}</span></v-col>
-                <v-col cols="10"><v-btn-group variant="outlined" divided density="compact" role="group" :aria-labelledby="`setting-${item.key}`">
-                    <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === true"
-                        :aria-pressed="opt[item.key] === true" @click="set_and_emit(item.key, true)">开启</v-btn>
-                    <v-btn :disabled="item.child && !opt.notes_enabled" :active="opt[item.key] === false"
-                        :aria-pressed="opt[item.key] === false" @click="set_and_emit(item.key, false)">关闭</v-btn>
-                </v-btn-group></v-col>
-            </v-row>
+        <v-list-item v-for="item in switch_options" :key="item.key" class="my-2" :data-setting="item.key">
+            <div class="setting-switch-row">
+                <label class="setting-switch-label" :class="{ 'setting-switch-label-disabled': item.child && !opt.notes_enabled }"
+                    :id="`setting-${item.key}`" :for="`switch-${item.key}`">{{ item.label }}</label>
+                <v-switch :id="`switch-${item.key}`" class="setting-switch" :model-value="opt[item.key]"
+                    :disabled="item.child && !opt.notes_enabled" :aria-labelledby="`setting-${item.key}`"
+                    role="switch" color="primary" density="comfortable" inset hide-details
+                    @update:model-value="set_and_emit(item.key, $event)"></v-switch>
+            </div>
         </v-list-item>
 
         <v-list-item class="my-2">
@@ -219,10 +203,11 @@ export default {
             paging_control: "mouse_and_keyboard",
             wheel_paging: true,
         },
-        note_options: [
-            { key: 'notes_enabled', label: '笔记' },
-            { key: 'show_comments', label: '段落评论', description: '加载章节段落评论', child: true },
-            { key: 'show_selection_toolbar', label: '选区工具栏', description: '选中后出现工具栏', child: true },
+        switch_options: [
+            { key: 'wheel_paging', label: '使用鼠标滚轮翻页' },
+            { key: 'notes_enabled', label: '启用划线和笔记功能' },
+            { key: 'show_comments', label: '显示全部划线和评论', child: true },
+            { key: 'show_selection_toolbar', label: '选中文字后显示工具栏', child: true },
         ],
         themes: THEMES,
     })
@@ -231,6 +216,9 @@ export default {
 </script>
 
 <style scoped>
-.note-setting-label { overflow-wrap: anywhere; }
-.note-suboption-disabled { opacity: 0.6; }
+.reader-settings { padding-inline: max(0px, calc((100% - 560px) / 2)); }
+.setting-switch-row { display: flex; align-items: center; gap: 16px; }
+.setting-switch-label { flex: 1; min-width: 0; line-height: 1.5; cursor: pointer; }
+.setting-switch-label-disabled { opacity: 0.6; cursor: default; }
+.setting-switch { flex: 0 0 auto; --v-input-control-height: 36px; }
 </style>
