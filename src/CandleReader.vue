@@ -3,6 +3,7 @@
           :book_url="book_url" :display_url="display_url"
           :debug="debug" :themes_css="themes_css"
           :initial_book_id="book_id"
+          :annotation_callbacks="annotation_callbacks"
           :audiobook_edition_id="audiobook_edition_id"
           :audiobook_manifest_url="audiobook_manifest_url"
           />
@@ -34,6 +35,10 @@ export default {
     },
     book_id: {
       type: [Number, String],
+      default: null
+    },
+    annotation_callbacks: {
+      type: Object,
       default: null
     },
     audiobook_edition_id: {

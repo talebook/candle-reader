@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="icon" href="./favicon.ico" />
+  <title>秉烛夜读 · 评论功能演示</title>
+  <style>
+    :root { --bg: #f6f4ef; --card: #ffffff; --text: #24312b; --muted: #66706a; --line: #e4e0d6; --primary: #3c6e57; --primary-text: #ffffff; --tint: #e8f0eb; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #171b19; --card: #212724; --text: #e6ebe7; --muted: #9aa59f; --line: #333b37; --primary: #7fb89a; --primary-text: #102018; --tint: #26332c; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: max(32px, env(safe-area-inset-top)) 16px 48px; }
+    .eyebrow { font-size: 12px; letter-spacing: 2px; color: var(--muted); }
+    h1 { margin: 4px 0 8px; font-size: 26px; line-height: 1.3; }
+    .lead { margin: 0 0 24px; color: var(--muted); }
+    .open { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 20px; border-radius: 12px; background: var(--primary); color: var(--primary-text); font-size: 17px; font-weight: 600; text-decoration: none; }
+    .open:active { transform: translateY(1px); }
+    .more { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 0; }
+    .more a { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 64px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text); text-decoration: none; text-align: center; font-size: 14px; line-height: 1.35; }
+    .more small { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    a:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+    section { margin-top: 28px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+    h2 { margin: 0 0 10px; font-size: 17px; }
+    ol, ul { margin: 0; padding-left: 20px; }
+    li + li { margin-top: 6px; }
+    .tag { display: inline-block; padding: 0 6px; margin-right: 6px; border-radius: 4px; background: var(--tint); color: var(--primary); font-size: 12px; }
+    .note { margin: 0; color: var(--muted); font-size: 13px; }
+    footer { margin-top: 24px; color: var(--muted); font-size: 12px; text-align: center; }
+    @media (max-width: 420px) { .more { grid-template-columns: 1fr; } .more a { min-height: 48px; flex-direction: row; gap: 8px; } .more small { margin: 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">秉烛夜读 · CANDLE READER</div>
+    <h1>评论功能演示</h1>
+    <p class="lead">用《西游记》体验阅读器里的划线、段落评论、整书评论、回复与赞踩。数据只保存在当前页面的内存里，不连接任何服务器，刷新即重置。</p>
+
+    <a class="open" id="open-main" href="./demo.html?fresh=1" target="_blank" rel="noopener">从第一回开始体验 ›</a>
+    <nav class="more" aria-label="其他打开方式">
+      <a id="open-continue" href="./demo.html" target="_blank" rel="noopener">继续上次阅读<small>回到上次读到的位置</small></a>
+      <a id="open-guest" href="./demo.html?fresh=1&amp;guest=1" target="_blank" rel="noopener">以游客身份<small>体验登录引导</small></a>
+      <a id="open-diag" href="./demo.html?fresh=1&amp;diag=1" target="_blank" rel="noopener">诊断模式<small>记录选中文字相关事件</small></a>
+    </nav>
+
+    <section aria-labelledby="try-title">
+      <h2 id="try-title">可以这样试</h2>
+      <ol>
+        <li><span class="tag">评论</span>点底部「评论」，看本章评论；往下滑会自动加载更多。</li>
+        <li><span class="tag">完整页</span>点「查看更多评论 ›」，在「本章评论／全书评论／我的」之间切换。「我的」里有私密划线和私密评论。</li>
+        <li><span class="tag">详情</span>点任意一条评论进入详情：回复、回复别人的回复、修改或删除自己的内容。</li>
+        <li><span class="tag">赞踩</span>点赞或踩，再点一次取消；两者互斥。</li>
+        <li><span class="tag">选中</span>在正文里长按选中文字：复制、划线、写评论、看本段评论。</li>
+        <li><span class="tag">气泡</span>正文段落末尾的数字气泡表示本段的公开评论数，点它进入本段评论。</li>
+        <li><span class="tag">游客</span>右上角「演示」里可以切换为游客，再点赞或写评论会提示登录。</li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="tips-title">
+      <h2 id="tips-title">说明</h2>
+      <ul>
+        <li>电脑上把窗口拉宽到 850px 以上，评论和设置会变成右侧侧边栏，目录在左侧。</li>
+        <li>iPhone 上选中文字时，系统自带的「拷贝」菜单会出现在选区上方（网页无法关闭），阅读器的工具栏在选区下方。</li>
+        <li>首次打开需要下载约 13 MB（电子书和样式），网速慢时请稍等。</li>
+        <li>选中文字有问题时，用「诊断模式」打开再选一次，把右上角演示条里的记录截图发给开发者。</li>
+      </ul>
+    </section>
+
+    <footer>秉烛夜读 · 版本 __VERSION__</footer>
+  </main>
+  <script>
+    // 打包时会把 __VERSION__ 换成构建时间，给演示页链接带上版本号，避免浏览器用旧缓存。
+    const version = '__VERSION__'
+    if (!version.startsWith('__')) {
+      document.querySelectorAll('a[href^="./demo.html"]').forEach(link => {
+        const url = new URL(link.getAttribute('href'), location.href)
+        url.searchParams.set('v', version)
+        link.href = url.toString()
+      })
+    }
+  </script>
+</body>
+</html>
