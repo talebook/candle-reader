@@ -1,79 +1,81 @@
 const { test, expect } = require('@playwright/test')
-const { setupApiMock, SAMPLE_USER } = require('./helpers/mock-api')
-const { gotoReader, waitForReaderRendered } = require('./helpers/reader')
+const { setupApiMock } = require('./helpers/mock-api')
+const { gotoHostReader } = require('./helpers/reader')
 
 test.use({ viewport: { width: 402, height: 874 }, deviceScaleFactor: 3 })
 
-for (const theme of ['white', 'grey']) for (const login of [false, true]) {
-  test(`面板最终关闭恢复入口，切换不抢焦 ${theme} ${login ? 'login' : 'guest'}`, async ({ page }) => {
-    await setupApiMock(page, login ? {
-      'GET /api/user/info': { err: 'ok', data: SAMPLE_USER },
-      'GET /api/review/me': { err: 'ok', data: { count: 0 } },
-    } : {})
-    await page.addInitScript(theme => localStorage.setItem('readerSettings', JSON.stringify({ theme, show_selection_toolbar: false })), theme)
-    await gotoReader(page)
-    await waitForReaderRendered(page)
-    await page.waitForFunction(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.current_toc)
-    const notes = page.locator('.v-bottom-navigation').getByRole('button', { name: /^笔记/ })
+for (const theme of ['white', 'grey']) {
+  test(`面板最终关闭恢复入口，切换不抢焦 ${theme}`, async ({ page }) => {
+    await setupApiMock(page)
+    await page.addInitScript(theme => localStorage.setItem('readerSettings', JSON.stringify({ theme })), theme)
+    await gotoHostReader(page)
+    const comments = page.locator('.v-bottom-navigation').getByRole('button', { name: '评论' })
     const settings = page.locator('.v-bottom-navigation').getByRole('button', { name: '设置' })
-    const dialog = page.getByRole('dialog', { name: '阅读笔记' })
+    const drawer = page.locator('.reader-comments-drawer')
+    const fullPage = page.getByRole('dialog', { name: '完整评论页' })
+    const detail = page.getByRole('dialog', { name: '评论详情' })
     async function enter(button) { await button.focus(); await page.keyboard.press('Enter') }
-    async function open() { await enter(notes); await expect(dialog).toBeVisible() }
-    async function settledInPanel() {
-      await page.waitForTimeout(500) // include outgoing Vuetify transitions and delayed focus handlers
-      expect(await page.evaluate(() => !!document.activeElement.closest('.v-overlay--active'))).toBe(true)
-      expect(await page.evaluate(() => window.panelFocusLog || [])).toEqual([])
+    // 等焦点进入抽屉后再继续，避免在展开动画的同一帧里按键。
+    async function settled() {
+      await expect(drawer).toBeVisible()
+      await expect.poll(() => page.evaluate(() => !!document.activeElement.closest('.annotation-bottom-sheet'))).toBe(true)
     }
+    async function open() { await enter(comments); await settled() }
+
+    // Esc 与点击抽屉外区域收起后，焦点回到底部「评论」入口。
     await open()
     await page.keyboard.press('Escape')
-    await expect(dialog).toBeHidden()
-    await expect(notes).toBeFocused()
+    await expect(drawer).toBeHidden()
+    await expect(comments).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(settings).toBeFocused()
-
     await open()
-    await enter(page.getByRole('button', { name: '关闭笔记', exact: true }))
-    await expect(notes).toBeFocused()
+    await page.locator('.annotation-bottom-sheet .v-overlay__scrim').click({ position: { x: 10, y: 60 } }) // 顶部栏下方、抽屉上方的外部区域
+    await expect(drawer).toBeHidden()
+    await expect(comments).toBeFocused()
 
-    for (const category of ['当前章评', '本书评论']) {
-      for (const close of ['escape', 'button']) {
-        await open()
-        await enter(page.getByRole('button', { name: category, exact: true }))
-        const closeButton = page.getByRole('button', { name: '关闭评论面板' })
-        await expect(closeButton).toBeVisible()
-        if (close === 'escape') await page.keyboard.press('Escape')
-        else await enter(closeButton)
-        await expect(notes).toBeFocused()
-      }
-      await open()
-      await page.evaluate(() => {
-        window.panelFocusLog = []
-        if (!window.trackPanelFocus) {
-          window.trackPanelFocus = true
-          document.addEventListener('focusin', e => {
-            if (e.target.closest('.v-bottom-navigation')) window.panelFocusLog.push(e.target.textContent)
-          })
-        }
+    // 独立页面逐层返回：详情页 → 完整页 → 抽屉，Esc 每次只退一层，最后回到入口。
+    await open()
+    await enter(drawer.getByRole('button', { name: /查看更多评论/ }))
+    await expect(fullPage).toBeVisible()
+    // 等完整页接管焦点后再用键盘操作。
+    await expect.poll(() => page.evaluate(() => !!document.activeElement.closest('.rc-standalone'))).toBe(true)
+    await enter(fullPage.locator('[data-comment="1"]').getByRole('button', { name: '回复 3' }))
+    await expect(detail).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(detail).toBeHidden()
+    await expect(fullPage).toBeVisible()
+    await expect(fullPage.locator('[data-comment="1"]').getByRole('button', { name: '回复 3' })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(fullPage).toBeHidden()
+    await expect(drawer).toBeVisible()
+    await expect(drawer.getByRole('button', { name: /查看更多评论/ })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+    await expect(comments).toBeFocused()
+
+    // 在面板之间切换时，焦点不能被正在离场的面板抢回底部菜单。
+    await open()
+    await page.evaluate(() => {
+      window.panelFocusLog = []
+      document.addEventListener('focusin', e => {
+        if (e.target.closest('.v-bottom-navigation')) window.panelFocusLog.push(e.target.textContent)
       })
-      await enter(page.getByRole('button', { name: category, exact: true }))
-      await expect(page.getByRole('button', { name: '返回笔记', exact: true })).toBeVisible()
-      await settledInPanel()
-      await enter(page.getByRole('button', { name: '返回笔记', exact: true }))
-      await expect(dialog).toBeVisible()
-      await settledInPanel()
-      await enter(page.getByRole('button', { name: '前往设置开启工具栏' }))
-      await expect(page.locator('[data-setting=notes_enabled]')).toBeVisible()
-      await settledInPanel()
-      await page.keyboard.press('Escape')
-      await expect(notes).toBeFocused()
-    }
+    })
+    await page.evaluate(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.set_menu('settings'))
+    await expect(page.locator('[data-setting=notes_enabled]')).toBeVisible()
+    await page.waitForTimeout(500) // include outgoing Vuetify transitions and delayed focus handlers
+    expect(await page.evaluate(() => !!document.activeElement.closest('.v-overlay--active'))).toBe(true)
+    expect(await page.evaluate(() => window.panelFocusLog)).toEqual([])
+    await page.keyboard.press('Escape')
+    await expect(comments).toBeFocused()
+
     await enter(settings)
     await expect(page.locator('[data-setting=notes_enabled]')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(settings).toBeFocused()
-    await open()
-    await page.locator('.annotation-bottom-sheet .v-overlay__scrim').click({ position: { x: 10, y: 100 } })
-    await expect(notes).toBeFocused()
+
+    // 由外部触发元素打开时，该元素已不在页面上，回退到底部「评论」入口。
     await page.evaluate(() => {
       const trigger = document.createElement('button')
       document.body.appendChild(trigger)
@@ -81,8 +83,8 @@ for (const theme of ['white', 'grey']) for (const login of [false, true]) {
       document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.on_open_annotations()
       trigger.remove()
     })
-    await expect(dialog).toBeVisible()
+    await settled()
     await page.keyboard.press('Escape')
-    await expect(notes).toBeFocused()
+    await expect(comments).toBeFocused()
   })
 }

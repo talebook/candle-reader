@@ -12,7 +12,7 @@ test('页面加载后底部导航栏可见', async ({ page }) => {
   await gotoReader(page)
   await expect(page.getByRole('button', { name: '目录' })).toBeVisible()
   await expect(page.getByRole('button', { name: '设置' })).toBeVisible()
-  await expect(page.locator('.v-bottom-navigation button')).toHaveText(['目录', '夜晚', '笔记', '设置'])
+  await expect(page.locator('.v-bottom-navigation button')).toHaveText(['目录', '夜晚', '评论', '设置'])
 })
 
 test('点击「设置」打开设置面板', async ({ page }) => {
@@ -74,4 +74,48 @@ test('点击主题按钮在白天/夜晚间切换 @epub', async ({ page }) => {
   // 底部导航第二个按钮是主题切换（无 value，文案为 夜晚/白天）
   await page.getByRole('button', { name: /夜晚|白天/ }).click()
   await expect.poll(() => readState(page, 'settings').then(s => s.theme_mode)).not.toBe(before)
+})
+
+test('左右翻页时拦截阅读区域外框的拖动，正文里不拦（保留 iOS 选区手柄），整页固定 @epub', async ({ page }) => {
+  await gotoReader(page)
+  await waitForReaderRendered(page)
+  const prevented = () => page.evaluate(() => {
+    const drag = target => {
+      const doc = target.ownerDocument
+      const touch = new (doc.defaultView.Touch)({ identifier: 1, target, clientX: 100, clientY: 100 })
+      const event = new (doc.defaultView.TouchEvent)('touchmove', { cancelable: true, bubbles: true, touches: [touch] })
+      return !target.dispatchEvent(event)
+    }
+    const sheet = document.querySelector('.v-overlay--active .v-overlay__content')
+    return {
+      iframe: drag(document.querySelector('#reader iframe').contentDocument.body),
+      main: drag(document.querySelector('#main')),
+      panel: sheet ? drag(sheet) : null,
+    }
+  })
+  expect(await page.evaluate(() => ['position', 'overflow'].map(key => getComputedStyle(document.body)[key]))).toEqual(['fixed', 'hidden'])
+  await page.getByRole('button', { name: '设置' }).click()
+  await expect(page.getByText('亮度')).toBeVisible()
+  expect(await prevented()).toEqual({ iframe: false, main: true, panel: false })
+  await page.getByRole('button', { name: '上下滑动' }).click()
+  await expect.poll(() => readState(page, 'settings').then(settings => settings.flow)).toBe('scrolled')
+  expect(await prevented()).toMatchObject({ iframe: false, main: false })
+})
+
+test('正文加载超过 60 秒提示「加载较慢」但不中断，加载完成后提示自动关闭', async ({ page }) => {
+  let release
+  const held = new Promise(resolve => { release = resolve })
+  await page.route('**/demo/book1.epub', async route => { await held; await route.continue() })
+  await page.clock.install()
+  await gotoReader(page)
+  const dialog = page.getByRole('dialog', { name: '加载较慢' })
+  await page.clock.fastForward(59000)
+  await expect(dialog).toHaveCount(0)
+  await page.clock.fastForward(2000)
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('button', { name: '继续等待' })).toBeVisible()
+  await page.clock.resume()
+  release()
+  await waitForReaderRendered(page)
+  await expect(dialog).toBeHidden()
 })

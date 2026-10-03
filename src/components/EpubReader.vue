@@ -27,13 +27,9 @@
         <span>{{ switch_theme_text }}</span>
       </v-btn>
 
-      <v-btn ref="panelEntryAnnotations" value="annotations" :aria-label="chapter_annotation_count ? `笔记，本章 ${chapter_annotation_count} 条` : '笔记'"
-        @click="on_open_annotations">
-        <v-badge v-if="chapter_annotation_count" color="primary" :content="chapter_annotation_count">
-          <v-icon>mdi-notebook-outline</v-icon>
-        </v-badge>
-        <v-icon v-else>mdi-notebook-outline</v-icon>
-        <span>笔记</span>
+      <v-btn ref="panelEntryAnnotations" value="annotations" @click="on_open_annotations">
+        <v-icon>mdi-comment-text-outline</v-icon>
+        <span>评论</span>
       </v-btn>
 
       <v-btn ref="panelEntrySettings" value="settings" @click="set_menu('settings')">
@@ -54,89 +50,53 @@
       @close="audiobook_open = false"
     ></audiobook-player>
 
-    <v-bottom-sheet class="fixed mb-14 settings-bottom-sheet" max-height="90%" v-model="menu.panels.settings" @update:model-value="on_panel_model_update('settings', $event)" @after-leave="on_panel_after_leave('settings')" contained z-index="234">
+    <v-bottom-sheet class="fixed mb-14 settings-bottom-sheet reader-side-right" max-height="90%" v-model="menu.panels.settings" @update:model-value="on_panel_model_update('settings', $event)" @after-leave="on_panel_after_leave('settings')" contained z-index="234">
       <settings :settings="settings" @update="update_settings" @open-themes="open_theme_dialog"></settings>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.toc" @update:model-value="on_panel_model_update('toc', $event)" @after-leave="on_panel_after_leave('toc')" contained close-on-content-click  z-index="234">
+    <v-bottom-sheet class="fixed mb-14 reader-side-left" max-height="90%" v-model="menu.panels.toc" @update:model-value="on_panel_model_update('toc', $event)" @after-leave="on_panel_after_leave('toc')" contained close-on-content-click  z-index="234">
       <book-toc ref="bookTocComponent" :meta="book_meta" :toc_items="toc_items" :current-chapter="current_toc" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.more" @update:model-value="on_panel_model_update('more', $event)" @after-leave="on_panel_after_leave('more')" contained z-index="234">
-      <v-btn variant="tonal" @click="on_open_annotations">返回笔记</v-btn>
-      <book-review :user="user" :login="is_login" :comments="book_reviews" :sort="book_review_sort"
-        @close="set_menu('hide')" @login="show_login = true" @update:sort="on_change_book_review_sort"
-        @open-settings="show_user_center = true" @add="on_add_book_review" @jump="on_jump_review"></book-review>
-    </v-bottom-sheet>
-
-    <!-- 游客点「点击登录」时弹出，复用 Guest -->
-    <v-dialog v-model="show_login" max-width="500" z-index="2999">
-      <guest @login="on_book_login"></guest>
-    </v-dialog>
-
-    <!-- 已登录点 ⚙️ 时弹出用户设置/互动消息，复用 UserCenter -->
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="show_user_center" contained z-index="234">
-      <user-center :messages="comments" :user="user" @update="on_login_user" @logout="on_book_logout"></user-center>
-    </v-bottom-sheet>
-
-    <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.comments" @update:model-value="on_panel_model_update('comments', $event)" @after-leave="on_panel_after_leave('comments')" contained  z-index="234">
-      <v-btn variant="tonal" @click="on_open_annotations">返回笔记</v-btn>
-      <book-comments :login="is_login" :comments="comments" @close="set_menu('hide')"
-        @login="set_menu('more')" @add_review="on_add_review"></book-comments>
-    </v-bottom-sheet>
-
-    <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet" max-height="90%" v-model="menu.panels.annotations" @update:model-value="on_panel_model_update('annotations', $event)" @after-leave="on_panel_after_leave('annotations')" contained z-index="234"
-      aria-label="阅读笔记">
-      <v-card>
-        <v-toolbar density="compact" color="surface">
-          <v-toolbar-title>笔记</v-toolbar-title>
-          <template v-slot:append>
-            <v-btn v-if="settings.notes_enabled" icon="mdi-refresh" title="刷新笔记" aria-label="刷新笔记"
-              :loading="annotations_loading" @click="load_annotations"></v-btn>
-            <v-btn icon="mdi-close" title="关闭笔记" aria-label="关闭笔记" @click="set_menu('hide')"></v-btn>
-          </template>
-        </v-toolbar>
-        <div v-if="settings.notes_enabled" class="d-flex align-center flex-wrap ga-2 px-4 py-3" role="group" aria-label="笔记分类">
-          <span class="text-body-1 font-weight-medium me-auto">{{ selection_annotation_cfi ? '此处笔记' : '笔记' }}</span>
-          <v-btn v-if="selection_annotation_cfi" variant="tonal" @click="on_open_annotations">查看全部</v-btn>
-          <v-btn variant="tonal" :disabled="!settings.show_comments || !current_toc" @click="open_chapter_comments">当前章评</v-btn>
-          <v-btn variant="tonal" aria-label="本书评论" @click="on_open_comments">
-            <v-badge v-if="unread_count" color="error" :content="unread_count">本书评论</v-badge>
-            <span v-else>本书评论</span>
-          </v-btn>
-        </div>
-        <v-card-text v-if="!settings.notes_enabled">笔记已关闭，已有数据会保留。
+    <!-- 评论抽屉（移动端 90% 高的底部抽屉，桌面端右侧侧边栏）。eager：选区和段尾气泡需要在首次打开前就能调用它。 -->
+    <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet reader-side-right" v-model="menu.panels.annotations" @update:model-value="on_panel_model_update('annotations', $event)" @after-leave="on_panel_after_leave('annotations')" contained eager z-index="234"
+      aria-label="评论">
+      <v-card v-if="!settings.notes_enabled" class="annotation-disabled">
+        <v-card-text>评论已关闭，已有数据会保留。
           <v-btn variant="text" @click="set_menu('settings')">前往设置</v-btn>
         </v-card-text>
-        <v-card-text v-else-if="!settings.show_comments" class="py-0">章节段落评论已关闭，可在设置中开启。</v-card-text>
-        <book-annotations v-if="settings.notes_enabled" :annotations="visible_annotations" :loading="annotations_loading" :error="annotations_error" :toolbar-enabled="settings.show_selection_toolbar" :selection-cfi="selection_annotation_cfi"
-          @open-settings="set_menu('settings')" @locate="locate_annotation"></book-annotations>
       </v-card>
+      <div v-show="settings.notes_enabled" class="annotation-sheet-body">
+        <reader-comments ref="comments" :repository="annotation_repository" :user="user" :chapter="comment_chapter" :active="menu.panels.annotations"
+          @write="on_write_comment" @edit="on_edit_comment" @login="request_login" @changed="on_comments_changed"
+          @feedback="show_annotation_feedback" @close="set_menu('hide')"></reader-comments>
+      </div>
     </v-bottom-sheet>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.ai" @update:model-value="on_panel_model_update('ai', $event)" @after-leave="on_panel_after_leave('ai')" contained z-index="234">
       <v-card title="开发中"></v-card>
     </v-bottom-sheet>
 
-    <v-dialog v-model="annotation_editor_open" class="annotation-editor-dialog" max-width="560" :persistent="annotation_saving"
+    <v-dialog v-model="annotation_editor_open" class="annotation-editor-dialog rc-above-standalone" max-width="560" :persistent="annotation_saving"
       aria-labelledby="annotation-editor-title" @after-leave="on_annotation_editor_closed">
       <v-card class="annotation-editor-card" color="surface">
         <header class="annotation-editor-header">
-          <h2 id="annotation-editor-title">写笔记</h2>
-          <v-btn icon="mdi-close" variant="text" size="small" aria-label="关闭笔记编辑框"
+          <h2 id="annotation-editor-title">{{ annotation_editor_title }}</h2>
+          <v-btn icon="mdi-close" variant="text" size="small" aria-label="关闭评论编辑框"
             min-width="44" min-height="44" :disabled="annotation_saving" @click="annotation_editor_open = false"></v-btn>
         </header>
         <v-card-text class="annotation-editor-body">
-          <section class="annotation-editor-reference" aria-labelledby="annotation-reference-title">
+          <section v-if="annotation_editor_quote" class="annotation-editor-reference" aria-labelledby="annotation-reference-title">
             <div class="annotation-reference-heading">
-              <span id="annotation-reference-title">整段引用</span>
-              <span class="annotation-reference-chapter">{{ annotation_editor_location?.toc?.label || current_toc_title }}</span>
+              <span id="annotation-reference-title">引用原文</span>
+              <span class="annotation-reference-chapter">{{ annotation_editor_location?.toc?.label || annotation_editor_record?.chapter || current_toc_title }}</span>
             </div>
-            <blockquote class="annotation-editor-quote" tabindex="0" aria-label="整段引用原文">{{ annotation_editor_location?.paragraph_quote_text }}</blockquote>
-            <p class="annotation-editor-hint">笔记关联整个段落。</p>
+            <blockquote class="annotation-editor-quote" tabindex="0" aria-label="引用原文">{{ annotation_editor_quote }}</blockquote>
+            <p class="annotation-editor-hint">{{ annotation_editor_location?.multi_paragraph ? '跨段选区 · 评论归属最后一段。' : '评论关联整个段落。' }}</p>
           </section>
-          <v-textarea ref="annotationEditorContent" v-model="annotation_editor_content" class="annotation-editor-input" label="笔记内容"
-            variant="outlined" density="comfortable" rows="5" autofocus persistent-placeholder placeholder="写下你对这段文字的想法…"
+          <p v-else class="annotation-editor-hint annotation-editor-book-hint">针对整本《{{ book_title }}》写下你的感受，发布后在「全书评论」中展示。</p>
+          <v-textarea ref="annotationEditorContent" v-model="annotation_editor_content" class="annotation-editor-input" label="评论内容"
+            variant="outlined" density="comfortable" rows="5" autofocus persistent-placeholder placeholder="写下你的想法…"
             :readonly="annotation_saving" :error-messages="annotation_editor_error" @update:model-value="annotation_editor_error = ''"></v-textarea>
         </v-card-text>
         <footer class="annotation-editor-footer">
@@ -146,12 +106,12 @@
               aria-labelledby="annotation-public-label" aria-describedby="annotation-visibility-hint"
               @update:model-value="annotation_editor_private = !$event"></v-switch>
             <label id="annotation-public-label" for="annotation-public-switch" class="annotation-visibility-label"
-              :class="{ 'annotation-visibility-label-disabled': annotation_saving }">公开这条笔记</label>
+              :class="{ 'annotation-visibility-label-disabled': annotation_saving }">公开这条评论</label>
           </div>
           <p id="annotation-visibility-hint" class="annotation-editor-hint annotation-visibility-hint" aria-live="polite">
             {{ annotation_repository?.source === 'localStorage'
               ? '仅保存在当前浏览器，公开范围暂不生效。'
-              : annotation_editor_private ? '只有你能看到这条笔记。' : '其他读者可在此段落看到这条笔记。' }}
+              : annotation_editor_private ? '只有你能看到这条评论。' : '其他读者可以在对应评论范围看到这条评论。' }}
           </p>
           <v-card-actions class="annotation-editor-actions">
             <v-spacer></v-spacer>
@@ -168,10 +128,10 @@
       <template v-slot:actions><v-btn variant="text" @click="annotation_feedback_visible = false">关闭</v-btn></template>
     </v-snackbar>
 
-    <!-- 选区预览只表示当前选择，保存成功后才绘制永久笔记标记。 -->
+    <!-- 选区预览只表示当前选择，保存成功后才绘制永久标记。 -->
     <div v-for="(rect, index) in selection_preview_rects" :key="index" class="selection-preview" :style="rect" aria-hidden="true"></div>
 
-    <!-- 文字选择工具栏：划线与笔记 UI 完全由阅读器负责，宿主只注入数据回调。 -->
+    <!-- 文字选择工具栏：划线与评论 UI 完全由阅读器负责，宿主只注入数据回调。 -->
     <div v-show="is_toolbar_visible()" id="comments-toolbar" ref="selectionToolbar" role="group"
       aria-label="选中文字操作" :style="`left: ${toolbar_left}px; top: ${toolbar_top}px;`">
       <div class="selection-toolbar-actions">
@@ -182,11 +142,11 @@
           <v-btn class="selection-toolbar-action" variant="text" :loading="annotation_saving" @click="save_highlight">
             <v-icon size="18" aria-hidden="true">mdi-format-underline</v-icon><span>划线</span>
           </v-btn>
-          <v-btn class="selection-toolbar-action" variant="text" :disabled="annotation_saving || !selected_location.paragraph_cfi" :title="selected_location.paragraph_cfi ? '对整个段落写想法' : '请选择单个段落后写想法'" @click="open_note_editor">
-            <v-icon size="18" aria-hidden="true">mdi-square-edit-outline</v-icon><span>写想法</span>
+          <v-btn class="selection-toolbar-action" variant="text" :disabled="annotation_saving || !selected_location.paragraph_cfi" @click="open_note_editor">
+            <v-icon size="18" aria-hidden="true">mdi-square-edit-outline</v-icon><span>写评论</span>
           </v-btn>
-          <v-btn class="selection-toolbar-action" variant="text" :disabled="annotation_saving || !selected_location.paragraph_cfi" :title="selected_location.paragraph_cfi ? '查看整段的想法' : '请选择单个段落后看想法'" @click="on_view_selection_notes">
-            <v-icon size="18" aria-hidden="true">mdi-comment-text-outline</v-icon><span>看想法</span>
+          <v-btn class="selection-toolbar-action" variant="text" :disabled="annotation_saving || !selected_location.paragraph_cfi" @click="on_view_selection_notes">
+            <v-icon size="18" aria-hidden="true">mdi-comment-text-outline</v-icon><span>看本段评论</span>
           </v-btn>
         </template>
         <v-btn v-if="has_audiobook" class="selection-toolbar-action" variant="text" @click="on_click_toolbar_listen">
@@ -201,16 +161,16 @@
         <v-progress-circular indeterminate size="64" color="primary"></v-progress-circular>
       </v-overlay>
 
-      <!-- 加载超时提示框 -->
-      <v-dialog v-model="showTimeoutDialog" max-width="500px">
+      <!-- 加载较慢 / 加载失败提示框：加载慢时不中断，加载完成后自动关闭 -->
+      <v-dialog v-model="showTimeoutDialog" max-width="500px" aria-labelledby="load-dialog-title">
         <v-card>
-          <v-card-title class="text-h5 text-center">加载超时</v-card-title>
+          <v-card-title id="load-dialog-title" class="text-h5 text-center">{{ load_failed ? '加载失败' : '加载较慢' }}</v-card-title>
           <v-card-text class="text-center">
-            电子书加载超时，可能是网络问题或文件格式不支持。
+            {{ load_failed ? '电子书加载失败，可能是网络问题或文件格式不支持。' : '电子书还在加载，可能是网络较慢。加载完成后此提示会自动关闭。' }}
           </v-card-text>
           <v-card-actions class="justify-center">
             <v-btn color="primary" variant="text" @click="showTimeoutDialog = false">
-              关闭
+              {{ load_failed ? '关闭' : '继续等待' }}
             </v-btn>
             <v-btn color="primary" variant="flat" @click="retryLoad">
               重试
@@ -272,25 +232,21 @@
 import { normalizeNoteSettings } from '@/note-settings'
 import Settings from './Settings.vue'
 import BookToc from './BookToc.vue'
-import Guest from './Guest.vue'
-import UserCenter from './UserCenter.vue'
-import BookComments from './BookComments.vue'
-import BookReview from './BookReview.vue'
-import BookAnnotations from './BookAnnotations.vue'
+import ReaderComments from './comments/ReaderComments.vue'
 import AudiobookPlayer from './AudiobookPlayer.vue'
 import { createAnnotationCallbacks, createClientId } from '@/annotations'
 import { THEMES, getTheme } from '@/themes'
+
+const PUBLIC_PREFERENCE_KEY = 'candle-reader:comment-public'
+// 网速慢时（如 3Mbps 下首次打开要下载十几 MB）正文可能要半分钟以上才出来，超过这个时间才提示「加载较慢」。
+const LOAD_TIMEOUT_MS = 60000
 
 export default {
   name: 'EpubReader',
   components: {
     Settings,
     BookToc,
-    Guest,
-    UserCenter,
-    BookComments,
-    BookReview,
-    BookAnnotations,
+    ReaderComments,
     AudiobookPlayer
   },
   props: {
@@ -305,10 +261,15 @@ export default {
   },
   computed: {
     comments_enabled: function () { return this.settings.notes_enabled && this.settings.show_comments; },
-    visible_annotations: function () {
-      return this.selection_annotation_cfi
-        ? this.annotations.filter(annotation => annotation.annotation_type === 'note' && annotation.cfi === this.selection_annotation_cfi)
-        : this.annotations;
+    comment_chapter: function () { return String(this.current_toc?.label || this.current_toc_title || '').trim(); },
+    annotation_editor_title: function () {
+      if (this.annotation_editor_record) return '编辑评论';
+      return this.annotation_editor_type === 'book_comment' ? '写整书评论' : '写评论';
+    },
+    annotation_editor_quote: function () {
+      const location = this.annotation_editor_location;
+      if (location) return location.multi_paragraph ? location.quote_text : location.paragraph_quote_text;
+      return this.annotation_editor_record?.quote_text || '';
     },
     has_audiobook: function () {
       return Boolean(this.audiobook_edition_id || this.audiobook_manifest_url);
@@ -425,19 +386,15 @@ export default {
           bookUrl: this.book_url,
         });
       } catch (error) {
-        this.annotations_error = error.message || '笔记功能初始化失败';
         console.error('Candle Reader annotations could not be initialized:', error);
       }
-    },
-    annotation_identity: function (annotation) {
-      return String(annotation?.id || annotation?.client_id || annotation?.cfi || '');
     },
     annotation_color: function (annotation) {
       const colors = { blue: '#4f8fb8', green: '#54a675', pink: '#d97a9d', yellow: '#e6b91e' };
       return colors[annotation?.color] || annotation?.color || (annotation?.annotation_type === 'note' ? '#4f8fb8' : '#e6b91e');
     },
     render_annotation: function (annotation) {
-      if (!this.settings.notes_enabled || !this.rendition || !annotation?.cfi) return;
+      if (!this.settings.notes_enabled || !this.rendition || !annotation?.cfi || annotation.annotation_type === 'book_comment') return;
       // epub.js indexes highlights by CFI, so multiple records at one range
       // must share one mark or remove(cfi) can leave an orphaned SVG behind.
       const identity = String(annotation.cfi);
@@ -446,7 +403,7 @@ export default {
         this.rendition.annotations.highlight(
           annotation.cfi,
           { annotationId: annotation.id || annotation.client_id },
-          () => this.on_open_annotations(),
+          () => this.open_comments('chapter'),
           'candle-reader-annotation',
           { fill: this.annotation_color(annotation), 'fill-opacity': '0.38', 'mix-blend-mode': 'multiply' },
         );
@@ -469,73 +426,70 @@ export default {
       this.rendered_annotations = [];
       this.rendered_annotation_ids.clear();
     },
-    load_annotations: async function () {
-      if (!this.annotation_repository || !this.settings.notes_enabled) return;
-      const request = ++this.annotation_list_request;
-      this.annotations_loading = true;
-      this.annotations_error = '';
+    load_user: async function () {
       try {
-        const annotations = await this.annotation_repository.load();
-        if (request !== this.annotation_list_request) return;
-        this.annotations = annotations;
-        annotations.forEach(this.render_annotation);
+        this.user = await this.annotation_repository?.user() || null;
       } catch (error) {
-        if (request !== this.annotation_list_request) return;
-        this.annotations_error = error.message || '笔记加载失败，请稍后重试';
-      } finally {
-        if (request === this.annotation_list_request) this.annotations_loading = false;
+        console.warn('Candle Reader current user could not be loaded:', error);
       }
     },
+    // 游客触发写评论、划线、赞踩、回复时引导登录；登录流程由宿主负责。
+    request_login: async function () {
+      this.show_annotation_feedback('请先登录后再操作');
+      try {
+        await this.annotation_repository?.login();
+        await this.load_user();
+      } catch (error) {
+        console.warn('Candle Reader login callback failed:', error);
+      }
+    },
+    // 读取本章自己的划线与评论，用于在正文绘制标记。
     load_chapter_annotations: async function (chapter) {
       if (!chapter || !this.annotation_repository || !this.settings.notes_enabled) return;
       const request = ++this.annotation_chapter_request;
-      this.chapter_annotation_count = 0;
       try {
         const annotations = await this.annotation_repository.load({ chapter });
         if (request !== this.annotation_chapter_request) return;
-        this.chapter_annotation_count = annotations.length;
         annotations.forEach(this.render_annotation);
       } catch (error) {
         console.warn('Candle Reader chapter annotations could not be loaded:', error);
       }
     },
+    open_comments: function (scope, paragraph = null) {
+      this.comment_paragraph = paragraph;
+      this.hide_toolbar();
+      if (this.menu.current_panel !== 'annotations') this.set_menu('annotations');
+      if (this.settings.notes_enabled) this.$refs.comments?.show(scope, paragraph?.paragraph_cfi || '');
+    },
     on_open_annotations: function () {
-      this.selection_annotation_cfi = '';
-      this.set_menu('annotations');
-      if (this.menu.current_panel === 'annotations') this.load_annotations();
+      if (this.menu.current_panel === 'annotations') return this.set_menu('hide');
+      this.open_comments('chapter');
     },
     on_view_selection_notes: function () {
       if (!this.selected_location?.paragraph_cfi) return;
-      this.selection_annotation_cfi = this.selected_location.paragraph_cfi;
-      this.hide_toolbar();
-      this.set_menu('annotations');
-      if (this.menu.current_panel === 'annotations') this.load_annotations();
-    },
-    locate_annotation: async function (annotation) {
-      if (!annotation?.cfi || !this.rendition) return;
-      try {
-        await this.rendition.display(annotation.cfi);
-        this.set_menu('hide');
-      } catch (error) {
-        this.show_annotation_feedback('无法定位这条笔记', true);
-      }
+      this.open_comments('paragraph', this.selected_location);
     },
     show_annotation_feedback: function (message, error = false) {
       this.annotation_feedback_message = message;
       this.annotation_feedback_error = error;
       this.annotation_feedback_visible = true;
     },
-    upsert_annotation: function (annotation) {
-      const identity = this.annotation_identity(annotation);
-      const index = this.annotations.findIndex(item => this.annotation_identity(item) === identity);
-      if (index >= 0) this.annotations.splice(index, 1, annotation);
-      else this.annotations.unshift(annotation);
+    // 评论增删或公开范围变化后，同步正文中的标记与段尾气泡。
+    on_comments_changed: function () {
+      this.clear_annotation_marks();
+      this.load_chapter_annotations(this.comment_chapter);
+      this.refresh_comment_icons();
+    },
+    read_public_preference: function () {
+      try { return localStorage.getItem(PUBLIC_PREFERENCE_KEY) !== 'false'; } catch (error) { return true; }
     },
     save_annotation: async function (annotationType, content, isPrivate) {
       if (!this.settings.notes_enabled) return null;
-      const passage = annotationType === 'note' ? this.annotation_editor_location : this.selected_location;
-      const cfi = annotationType === 'note' ? passage?.paragraph_cfi : passage?.cfi;
-      const quote = annotationType === 'note' ? passage?.paragraph_quote_text : passage?.quote_text;
+      if (!this.user) { this.request_login(); return null; }
+      const passage = annotationType === 'highlight' ? this.selected_location : this.annotation_editor_location;
+      const isNote = annotationType === 'note';
+      const cfi = isNote ? passage?.paragraph_cfi : passage?.cfi;
+      const quote = isNote && !passage?.multi_paragraph ? passage?.paragraph_quote_text : passage?.quote_text;
       if (!cfi || !quote || !this.annotation_repository || this.annotation_saving) return null;
       this.annotation_saving = true;
       try {
@@ -544,18 +498,17 @@ export default {
           annotation_type: annotationType,
           is_private: annotationType === 'highlight' ? true : isPrivate,
           chapter: String(passage.toc?.label || this.current_toc_title || '').trim(),
+          // 评论归属段落（跨段时为最后一段）与真实选区分开保存。
           cfi: String(cfi),
+          range_cfi: String(passage.cfi || cfi),
           quote_text: quote,
           content,
-          color: annotationType === 'note' ? 'blue' : 'yellow',
+          color: isNote ? 'blue' : 'yellow',
         });
-        this.upsert_annotation(annotation);
         this.render_annotation(annotation);
-        this.load_chapter_annotations(String(passage.toc?.label || this.current_toc_title || '').trim());
         this.hide_toolbar();
         try { passage.contents?.window?.getSelection()?.removeAllRanges(); } catch (error) { /* noop */ }
         if (this.selected_location === passage) this.selected_location = {};
-        if (annotationType !== 'highlight') this.show_annotation_feedback('笔记已保存');
         return annotation;
       } catch (error) {
         this.show_annotation_feedback(`保存失败：${error.message || '请稍后重试'}`, true);
@@ -567,29 +520,83 @@ export default {
     save_highlight: function () {
       return this.save_annotation('highlight', '', true);
     },
-    open_note_editor: function () {
-      if (!this.settings.notes_enabled || !this.selected_location?.paragraph_cfi || !this.selected_location?.paragraph_quote_text) return;
-      this.hide_toolbar(true);
-      this.annotation_editor_location = this.selected_location;
-      this.annotation_editor_content = '';
+    open_editor: function ({ location = null, record = null, type = 'note' }) {
+      this.annotation_editor_location = location;
+      this.annotation_editor_record = record;
+      this.annotation_editor_type = record?.annotation_type || type;
+      this.annotation_editor_content = record?.content || '';
       this.annotation_editor_error = '';
-      this.annotation_editor_private = false;
+      // 新建沿用最近一次公开范围选择；编辑显示该记录自己的公开范围。
+      this.annotation_editor_private = record ? record.is_private !== false : !this.read_public_preference();
       this.annotation_editor_open = true;
+    },
+    open_note_editor: function () {
+      if (!this.settings.notes_enabled || !this.selected_location?.paragraph_cfi) return;
+      if (!this.user) return this.request_login();
+      this.hide_toolbar(true);
+      this.open_editor({ location: this.selected_location });
+    },
+    // 抽屉与完整评论页底部的「写评论」：本段范围写段落评论，其余范围写整书评论。
+    on_write_comment: function ({ scope }) {
+      if (scope === 'paragraph' && this.comment_paragraph?.paragraph_cfi) {
+        this.open_editor({ location: { ...this.comment_paragraph, client_id: createClientId() } });
+      } else {
+        this.open_editor({ type: 'book_comment' });
+      }
+    },
+    on_edit_comment: function (record) {
+      this.open_editor({ record });
     },
     save_note: async function () {
       const content = this.annotation_editor_content.trim();
       if (!content) {
-        this.annotation_editor_error = '请填写笔记内容';
+        this.annotation_editor_error = '请填写评论内容';
         this.$nextTick(() => this.$refs.annotationEditorContent?.focus());
         return;
       }
-      const annotation = await this.save_annotation('note', content, this.annotation_editor_private);
-      if (annotation) this.annotation_editor_open = false;
+      const isPrivate = this.annotation_editor_private;
+      const record = this.annotation_editor_record;
+      let saved = null;
+      if (record || this.annotation_editor_type === 'book_comment') {
+        if (this.annotation_saving) return;
+        this.annotation_saving = true;
+        try {
+          saved = await this.annotation_repository.save(record
+            ? { id: record.id, client_id: record.client_id, annotation_type: record.annotation_type, content, is_private: isPrivate }
+            : {
+              client_id: createClientId(),
+              annotation_type: 'book_comment',
+              is_private: isPrivate,
+              chapter: '',
+              // 整书评论关联到全书最开头。
+              cfi: `epubcfi(${this.book.spine.first().cfiBase}!/4)`,
+              quote_text: '',
+              content,
+            });
+        } catch (error) {
+          this.show_annotation_feedback(`保存失败：${error.message || '请稍后重试'}`, true);
+        } finally {
+          this.annotation_saving = false;
+        }
+      } else {
+        saved = await this.save_annotation('note', content, isPrivate);
+      }
+      if (!saved) return;
+      if (!record) {
+        try { localStorage.setItem(PUBLIC_PREFERENCE_KEY, String(!isPrivate)); } catch (error) { /* noop */ }
+      }
+      this.annotation_editor_open = false;
+      this.$refs.comments?.apply_saved(saved);
+      this.on_comments_changed();
+      const where = saved.annotation_type === 'book_comment' ? '全书评论' : '';
+      this.show_annotation_feedback(isPrivate ? '已保存为私密，可在「查看更多评论 › 我的」中查看'
+        : where ? `评论已保存，可在「${where}」中查看` : '评论已保存');
     },
     on_annotation_editor_closed: function () {
       const closingLocation = this.annotation_editor_location;
       this.annotation_editor_location = null;
-      if (this.selected_location === closingLocation) {
+      this.annotation_editor_record = null;
+      if (closingLocation && this.selected_location === closingLocation) {
         this.clear_selection_preview();
         try { closingLocation?.contents?.window?.getSelection()?.removeAllRanges(); } catch (error) { /* noop */ }
         this.selected_location = {};
@@ -707,6 +714,8 @@ export default {
         'line-height': `${this.settings.line_height} !important`,
         'letter-spacing': `${this.settings.letter_spacing}px !important`,
       };
+      // 开启选中工具栏时，尽量关掉 iOS 系统的文字菜单（拷贝/查询…），避免和我们的工具栏同时出现；关闭工具栏时保留系统菜单用于复制。
+      if (this.settings.notes_enabled && this.settings.show_selection_toolbar) decl['-webkit-touch-callout'] = 'none !important';
       const rules = { 'body, body *': decl };
       if (t.type === 'image') {
         // 图片皮肤：html 和 body 都设透明，iframe 才能真正透出 #reader 上的背景图
@@ -730,7 +739,7 @@ export default {
     on_panel_after_leave: function (panel) {
       // An outgoing sibling must not steal focus from the incoming sheet.
       if (panel !== this.panel_closing || Object.values(this.menu.panels).some(Boolean)) return;
-      if (this.show_login || this.show_user_center || this.show_theme_dialog || this.annotation_editor_open) return;
+      if (this.show_theme_dialog || this.annotation_editor_open) return;
       const usable = el => el?.isConnected && !el.disabled && !el.closest('[inert], .v-overlay') && el.getClientRects().length;
       const fallback = this.$refs[this.panel_entry_ref]?.$el || this.$refs.panelEntryAnnotations?.$el;
       const target = usable(this.panel_trigger) ? this.panel_trigger : fallback;
@@ -746,6 +755,7 @@ export default {
         }
       }
 
+      if (target !== 'annotations') this.$refs.comments?.close_pages();
       if (target === 'hide') {
         if (this.menu.current_panel !== 'hide') this.panel_closing = this.menu.current_panel;
       } else {
@@ -794,39 +804,16 @@ export default {
       this.apply_theme(this.settings.theme);
 
       if (annotationsWereEnabled && !this.settings.notes_enabled) {
-        this.annotation_list_request++;
         this.annotation_chapter_request++;
         this.annotation_editor_open = false;
-        this.annotations_loading = false;
-        this.chapter_annotation_count = 0;
         if (this.menu.current_panel === 'annotations') this.set_menu('hide');
         this.clear_annotation_marks();
       } else if (!annotationsWereEnabled && this.settings.notes_enabled) {
-        this.load_chapter_annotations(this.current_toc_title);
-        this.load_unread_count();
+        this.load_chapter_annotations(this.comment_chapter);
       }
 
       if (!this.settings.notes_enabled || !this.settings.show_selection_toolbar) this.hide_toolbar();
-      if (commentsWereEnabled !== this.comments_enabled) {
-        this.comments_request++;
-        this.comments = [];
-        for (const contents of this.rendition.getContents()) {
-          contents.document.querySelectorAll('.comment-icon').forEach(icon => icon.remove());
-        }
-        if (this.comments_enabled && this.current_toc) {
-          delete this.current_toc.load_time;
-          const contents = this.rendition.getContents().find(c => c.document === this.current_toc.elem.ownerDocument);
-          if (contents) this.load_comments_summary(contents, this.current_toc);
-        }
-        if (this.menu.current_panel === 'comments') this.set_menu('annotations');
-      }
-
-      if (annotationsWereEnabled && !this.settings.notes_enabled) {
-        this.book_review_request++;
-        this.book_reviews = [];
-        this.unread_count = 0;
-        if (this.menu.current_panel === 'more') this.set_menu('annotations');
-      }
+      if (commentsWereEnabled !== this.comments_enabled) this.refresh_comment_icons();
 
       // 应用亮度设置（作用于 #main，整屏含背景图与状态栏一起调光）
       if (opt.brightness !== undefined) {
@@ -847,18 +834,32 @@ export default {
       this.suspend_audiobook_follow();
       this.rendition.display(item.id);
     },
-    on_mousedown: function () {
+    on_mousedown: function (event) {
       this.mouse_down_time = new Date();
+      this.mouse_down_point = event ? { x: event.clientX, y: event.clientY } : null;
     },
-    on_mouseup: function () {
+    on_mouseup: function (event) {
       const t = new Date() - this.mouse_down_time;
-      if (t > 600) {
-        this.check_if_selected_content = true;
-      } else {
-        this.check_if_selected_content = false;
-      }
+      // 按住拖动选字时，松开后浏览器同样会发 click：拖动距离明显或按得久都按选字处理。
+      const point = this.mouse_down_point;
+      const dragged = Boolean(point && event) && Math.hypot(event.clientX - point.x, event.clientY - point.y) > 8;
+      this.check_if_selected_content = t > 600 || dragged;
     },
     on_click_content: function (event) {
+      // 快速拖选时 click 早于 epub.js 的 selected 事件（约 250ms 后才发）：此时正文里已有选区，不能当作点击翻页。
+      // 双击选词同理（event.detail 为连击次数）。
+      if (event?.type === 'click' && event.view?.getSelection?.()?.isCollapsed === false && (event.detail >= 2
+        || (this.mouse_down_point && Math.hypot(event.clientX - this.mouse_down_point.x, event.clientY - this.mouse_down_point.y) > 8))) {
+        this.is_handlering_selected_content = false;
+        return;
+      }
+      // 已有选中文字时点别处：只取消选中、收起工具栏，这一下不翻页。
+      // iOS 上轻点时选区在 click 之前就被系统清掉了，读不到选区，所以以 epub.js 报过的选中状态为准。
+      if (this.selection_active || this.clear_text_selection()) {
+        this.clear_text_selection();
+        this.hide_toolbar();
+        return;
+      }
       if (!this.check_if_selected_content) {
         return this.smart_click(event)
       }
@@ -872,6 +873,18 @@ export default {
           this.is_handlering_selected_content = false;
         }
       }, 300);
+    },
+    clear_text_selection: function () {
+      let cleared = false;
+      for (const contents of this.rendition?.getContents() || []) {
+        const selection = contents.window?.getSelection();
+        if (selection && !selection.isCollapsed) {
+          selection.removeAllRanges();
+          cleared = true;
+        }
+      }
+      if (cleared) this.clear_selection_preview();
+      return cleared;
     },
     smart_click: function (event) {
       const rect = event.view.frameElement.getBoundingClientRect();
@@ -973,6 +986,27 @@ export default {
       }
       return;
     },
+    find_toc_in_same_file: function (cfi, contents, href) {
+      const chapters = [];
+      const collect = items => items.forEach(item => {
+        if (String(item.href || '').split('#')[0] === href) chapters.push(item);
+        if (item.subitems?.length) collect(item.subitems);
+      });
+      collect(this.toc_items);
+      let found;
+      for (const chapter of chapters) {
+        // 正文重新渲染后旧元素已失效，需要重新定位。
+        if (chapter.elem?.ownerDocument !== contents.document) {
+          const elem = contents.document.getElementById(chapter.href.split('#')[1] || '');
+          if (!elem) continue;
+          chapter.elem = elem;
+          chapter.cfi = new ePub.CFI(new ePub.CFI(elem, contents.cfiBase).toString());
+        }
+        if (found && this.book.locations.epubcfi.compare(cfi, chapter.cfi) < 0) break;
+        found = chapter;
+      }
+      return found;
+    },
     find_toc: function (search_cfi, contents) {
       const cfi = new ePub.CFI(search_cfi.toString()); // 强制转成标准格式
       const section = this.book.spine.get(contents.sectionIndex);
@@ -981,6 +1015,9 @@ export default {
       const toc = this.find_same_href_in_toc_tree(this.toc_items, section.href);
       console.log("got spine href in toc:", toc)
       if (toc === undefined) {
+        // 目录项都带锚点（一个正文文件里有多章）时，按位置取光标之前最近的那一章。
+        const chapter = this.find_toc_in_same_file(cfi, contents, section.href);
+        if (chapter) return chapter;
         // NCX/navigation can omit a readable spine item. Keep a stable chapter
         // context for both selection saves and reload/re-enable annotation loads.
         // Do not insert this synthetic entry into the book's actual TOC.
@@ -1027,8 +1064,14 @@ export default {
     count_distinct_between: function (start_elem, end_elem) {
       // 获取父节点
       var end = end_elem;
-      while (end.parentElement != start_elem.parentNode) {
+      while (end && end.parentElement != start_elem.parentNode) {
         end = end.parentElement;
+      }
+      if (!end) {
+        // 章节锚点与段落不在同一层级（一个文件里有多章时常见），按文档顺序数两者之间的段落。
+        const blocks = Array.from(start_elem.ownerDocument.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
+        const first = blocks.findIndex(block => block === start_elem || block.contains(start_elem) || (start_elem.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING));
+        return Math.max(0, blocks.indexOf(end_elem) - first);
       }
 
       // 初始化计数器
@@ -1074,6 +1117,7 @@ export default {
         }));
     },
     hide_toolbar: function (preserveSelection = false) {
+      if (!preserveSelection) this.selection_active = false;
       this.toolbar_left = -999;
       if (!preserveSelection) this.clear_selection_preview();
     },
@@ -1088,27 +1132,28 @@ export default {
       this.$nextTick(() => {
         const toolbar = this.$refs.selectionToolbar;
         if (!toolbar || !this.settings.notes_enabled || !this.settings.show_selection_toolbar) return;
-        const maxLeft = Math.max(8, window.innerWidth - toolbar.offsetWidth - 8);
+        const { width, height } = toolbar.getBoundingClientRect();
+        const maxLeft = Math.max(8, window.innerWidth - width - 8);
         this.toolbar_left = Math.max(8, Math.min(maxLeft, preferredLeft));
         const bottomClearance = this.menu.show_navbar ? 64 : 8;
-        this.toolbar_top = top >= (toolbar.offsetHeight + 64)
-          ? top - toolbar.offsetHeight - 12
-          : Math.min(window.innerHeight - toolbar.offsetHeight - bottomClearance, bottom + 12);
-        toolbar.querySelector('button')?.focus({ preventScroll: true });
+        const fitsAbove = top >= (height + 12 + 8);
+        const fitsBelow = bottom + 12 + height <= window.innerHeight - bottomClearance;
+        // 触屏设备（如 iOS Safari）的系统文字菜单固定出现在选区上方且无法关闭，工具栏改为优先放在下方，避免两者重叠。
+        const preferBelow = window.matchMedia?.('(pointer: coarse)').matches && fitsBelow;
+        this.toolbar_top = fitsAbove && !preferBelow
+          ? top - height - 12
+          : Math.min(window.innerHeight - height - bottomClearance, bottom + 12);
       });
     },
     is_toolbar_visible: function () {
       return this.settings.notes_enabled && this.settings.show_selection_toolbar && this.toolbar_left > 0;
     },
-    paragraph_for_range: function (range, contents) {
-      const paragraphOf = node => {
-        const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-        return element.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote, div') || contents.document.body;
-      };
-      const paragraph = paragraphOf(range.startContainer);
-      if (paragraph !== paragraphOf(range.endContainer)) return {};
-      // Use text boundaries so appended comment bubbles never enter the quote
-      // or change the paragraph CFI when comments are enabled/disabled.
+    paragraph_of: function (node, contents) {
+      const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+      return element.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote, div') || contents.document.body;
+    },
+    // 整段的 CFI 与原文。按文字边界取范围，段尾评论气泡不会进入引用，也不会改变段落 CFI。
+    paragraph_location: function (paragraph, contents) {
       const walker = contents.document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, {
         acceptNode: node => node.parentElement.closest('.comment-icon, script, style')
           ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
@@ -1122,6 +1167,14 @@ export default {
       return {
         paragraph_cfi: contents.cfiFromRange(paragraphRange),
         paragraph_quote_text: nodes.map(node => node.textContent).join('').trim(),
+      };
+    },
+    paragraph_for_range: function (range, contents) {
+      // 跨段选区的评论归属最后一个段落；真实选区仍由 cfi / quote_text 保留。
+      const paragraph = this.paragraph_of(range.endContainer, contents);
+      return {
+        ...this.paragraph_location(paragraph, contents),
+        multi_paragraph: paragraph !== this.paragraph_of(range.startContainer, contents),
       };
     },
     on_select_content: function (cfiRange, contents) {
@@ -1142,12 +1195,15 @@ export default {
       const toc = this.find_toc(cfi, contents);
       console.log("cfi = ", cfi, "toc =", toc);
 
-      // 基于cfi的数字快速计算
-      // const segment_id = cfi.path.steps[1].index - toc.cfi.path.steps[1].index;
-      const segment_id = toc.is_fallback
-        ? Math.max(0, Array.from(toc.elem.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).indexOf(p))
-        : this.count_distinct_between(toc.elem, p);
-      console.log("selected segment_id = ", segment_id);
+      // 段落序号只给听书「从这里听」兜底匹配用；算不出来也不能挡住工具栏。
+      let segment_id = 0;
+      try {
+        segment_id = toc.is_fallback
+          ? Math.max(0, Array.from(toc.elem.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).indexOf(p))
+          : this.count_distinct_between(toc.elem, p);
+      } catch (error) {
+        console.warn('Candle Reader paragraph index could not be computed:', error);
+      }
 
       this.selected_location = {
         client_id: createClientId(),
@@ -1159,16 +1215,12 @@ export default {
         segment_id: segment_id
       }
 
-      // 把 toolbar 移动到段落附近
+      this.selection_active = true;
+      // 把 toolbar 移动到实际选区附近。
       const view = this.rendition.views()._views.filter( view => { return view.index == contents.sectionIndex})[0]
-      this.update_selection_preview(range, view.iframe.getBoundingClientRect());
-      this.show_toolbar(p.getBoundingClientRect(), view.iframe.getBoundingClientRect());
-    },
-    on_click_toolbar_comments: function () {
-      console.log("点击发表评论按钮", this.selected_location)
-      const s = this.selected_location;
-      this.hide_toolbar();
-      this.show_selected_comments(s.toc, s.segment_id, s.cfi);
+      // 蓝色选区底色只配合我们的工具栏使用（工具栏和编辑框打开时保持选区可见）；工具栏关闭时只留系统原生选区。
+      if (this.settings.notes_enabled && this.settings.show_selection_toolbar) this.update_selection_preview(range, view.iframe.getBoundingClientRect());
+      this.show_toolbar(range.getBoundingClientRect(), view.iframe.getBoundingClientRect());
     },
     on_keyup: function (e) {
       if (e.key === 'Escape' && this.is_toolbar_visible()) {
@@ -1197,7 +1249,6 @@ export default {
       if (this.settings.flow !== 'paginated') return;
       if (!this.rendition) return;
       if (this.menu.current_panel !== 'hide') return;
-      if (this.show_login || this.show_user_center) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target;
       if (t && t.closest && (
@@ -1246,6 +1297,7 @@ export default {
     },
     init_listeners: function () {
       document.addEventListener('keyup', this.on_keyup);
+      document.addEventListener('touchmove', this.block_page_drag, { passive: false });
       this.rendition.on('keyup', this.on_keyup);
       this.rendition.on('click', this.on_click_content);
       this.rendition.on('selected', this.on_select_content);
@@ -1272,6 +1324,14 @@ export default {
         doc.__candle_wheel_bound = true;
         doc.addEventListener('wheel', this.on_wheel, { passive: false });
       });
+    },
+    // iOS Safari 上纵向拖动会带着整页回弹并收起/展开地址栏，可视高度一变正文就重新排版，看起来像在滚动加载。
+    // 左右翻页模式下拦掉阅读区域外框（顶栏、底栏、正文四周）的原生拖动。正文 iframe 里不拦：
+    // iOS 拖动选区两端的手柄靠的就是原生拖动；整页不动由 html/body 固定定位保证。
+    block_page_drag: function (event) {
+      if (this.settings.flow !== 'paginated' || event.touches?.length > 1) return;
+      if (!event.target?.closest?.('#main, .v-app-bar, .v-bottom-navigation')) return;
+      if (event.cancelable) event.preventDefault();
     },
 
     init_themes: function () {
@@ -1325,134 +1385,6 @@ export default {
         console.error('Error during fullscreen re-render:', error);
       }
     },
-    on_add_review: function (content) {
-      const loc = this.comments_location
-      const review = {
-        book_id: this.book_id,
-        chapter_name: loc.toc.label.trim(),
-        chapter_id: loc.toc.chapter_id,
-        segment_id: loc.segment_id,
-        cfi: loc.cfi.toString(),
-        content: content,
-        type: 1,
-      }
-      console.log("add review = ", review)
-
-      this.$backend('/api/review/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(review),
-      }).then(rsp => {
-        if (rsp.err == 'ok') {
-          this.comments.push(rsp.data);
-          alert("评论成功")
-        }
-        console.log("add review rsp = ", rsp)
-      });
-    },
-    on_jump_review: function (cfi) {
-      // 跳转到评论对应的 epub 位置（cfi 可为真实 epubcfi 或章节 href），并收起面板
-      if (!cfi || !this.rendition) return;
-      this.rendition.display(cfi);
-      this.set_menu('hide');
-    },
-    open_chapter_comments: async function () {
-      if (!this.comments_enabled || !this.current_toc) return;
-      const toc = this.current_toc;
-      const contents = this.rendition.getContents().find(c => c.document === toc.elem.ownerDocument);
-      await this.load_comments_summary(contents, toc);
-      if (this.comments_enabled) this.show_selected_comments(toc, 0, toc.cfi.toString());
-    },
-    on_open_comments: function () {
-      if (!this.settings.notes_enabled) return;
-      this.set_menu('more');
-      this.load_book_reviews();
-    },
-    on_change_book_review_sort: function (sort) {
-      this.book_review_sort = sort;
-      this.load_book_reviews();
-    },
-    load_unread_count: function () {
-      if (!this.settings.notes_enabled) return;
-      const request = this.book_review_request;
-      return this.$backend('/api/review/me?count=true').then(rsp => {
-        if (!this.settings.notes_enabled || request !== this.book_review_request) return;
-        if (rsp.err === 'user.need_login') this.is_login = false;
-        else if (rsp.err === 'ok') this.unread_count = rsp.data.count || 0;
-      }).catch(error => console.error('获取未读消息数失败:', error));
-    },
-    load_book_reviews: function () {
-      if (!this.settings.notes_enabled || !this.book_id) return;
-      const request = this.book_review_request;
-      const url = `/api/review/book/list?book_id=${this.book_id}&sort=${this.book_review_sort}`;
-      this.$backend(url).then(rsp => {
-        if (!this.settings.notes_enabled || request !== this.book_review_request) return;
-        if (rsp.err == 'ok') {
-          this.book_reviews = rsp.data.list || [];
-        }
-      });
-    },
-    on_book_login: function (user_data) {
-      this.on_login_user(user_data);
-      this.show_login = false;
-    },
-    on_book_logout: function () {
-      this.user = null;
-      this.is_login = false;
-      this.show_user_center = false;
-    },
-    on_add_book_review: function (content) {
-      if (!this.settings.notes_enabled) return;
-      const request = this.book_review_request;
-      // 「本书评论」锚定到当前章开始：chapter_id 由 summary 回填，cfi 取本章首元素。
-      const toc = this.current_toc;
-      if (!toc) {
-        alert("请先打开任意章节再发表评论");
-        return;
-      }
-      const review = {
-        book_id: this.book_id,
-        chapter_name: toc.label.trim(),
-        chapter_id: toc.chapter_id,
-        segment_id: 0, // 0 表示整章级（非段评）
-        cfi: toc.cfi ? toc.cfi.toString() : "",
-        content: content,
-        type: 1,
-      }
-      console.log("add book review = ", review)
-
-      this.$backend('/api/review/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(review),
-      }).then(rsp => {
-        if (!this.settings.notes_enabled || request !== this.book_review_request) return;
-        if (rsp.err == 'ok') {
-          this.book_reviews.push(rsp.data);
-          alert("评论成功")
-        }
-        console.log("add book review rsp = ", rsp)
-      });
-    },
-    on_location_changed_old: function (loc) {
-      // if (this.review_bid <= 0) return;
-
-      const contents_list = this.rendition.getContents();
-      [loc.start, loc.end].forEach(cfi => {
-        console.log("handle location ", cfi)
-        const spine = this.book.spine.get(cfi);
-        const contents = contents_list.filter(c => { return c.cfiBase == spine.cfiBase })[0];
-
-        const target_cfi = new ePub.CFI(cfi)
-        const toc = this.find_toc(target_cfi, contents, spine.href);
-
-        this.load_comments_summary(contents, toc);
-      })
-    },
     on_location_changed: function (loc) {
       // 处理当前显示的章节，确保章节标题正确更新
       try {
@@ -1484,16 +1416,15 @@ export default {
         console.error('Error in on_location_changed:', error);
       }
     },
+    // 段尾气泡：显示归属本段的公开评论数量，点击进入本段评论。
     load_comments_summary: function (contents, toc) {
-      if (!this.comments_enabled) return;
+      if (!this.comments_enabled || !this.annotation_repository) return;
       const request = this.comments_request;
-      console.log("load_comments_summary at ", contents, toc)
       if (toc === undefined) {
-        console.log("!! 加载章评错误，章节信息为空")
+        console.log("!! 加载评论数量错误，章节信息为空")
         return
       }
 
-      // TODO 应当增加一个刷新机制
       if (toc.load_time !== undefined) {
         const ms = new Date() - toc.load_time;
         if (ms < this.comments_refresh_time) {
@@ -1502,94 +1433,41 @@ export default {
       }
 
       toc.load_time = new Date();
-
-      // 查询该章节的评论总数，并保存到toc对象中，然后展示图标
-      const chapter_name = toc.label.trim();
-      var url = `/api/review/summary?book_id=${this.book_id}&chapter_name=${chapter_name}`;
-      return this.$backend(url).then(rsp => {
+      return this.annotation_repository.summary({ chapter: toc.label.trim() }).then(items => {
         if (!this.comments_enabled || request !== this.comments_request) return;
-        toc.load_time = new Date();
-        toc.summary = {}
-        toc.chapter_id = rsp.data.chapter_id;
-        (rsp.data.list || []).forEach(item => {
-          toc.summary[item.segmentId] = item;
-          toc.icons_rendered = false;
-        })
+        toc.summary = items;
+        this.add_comment_icons(contents, toc);
       }).catch(function (error) {
-        console.error('请求过程中出现错误：', error);
-      }).finally(() => {
-        if (this.comments_enabled && request === this.comments_request) this.add_comment_icons(contents, toc);
+        console.error('加载评论数量出现错误：', error);
       });
     },
     add_comment_icons: function (contents, toc) {
-      console.log("添加评论图标和计数器：", toc.label.trim())
-
-      // 如果章评功能关闭，不添加图标
-      if (!this.comments_enabled) {
-        return;
-      }
-
-      // 确定 segment_id 的最大值
-      var max_segment_id = 0;
-      for (var idx in toc.summary) {
-        if (idx > max_segment_id) {
-          max_segment_id = idx
+      if (!this.comments_enabled || !contents) return;
+      (toc.summary || []).forEach(item => {
+        const cfi = String(item.paragraph_cfi || '');
+        // 只处理属于这个正文文档的段落。
+        if (!item.count || !cfi.includes(contents.cfiBase)) return;
+        try {
+          const range = contents.range(cfi);
+          if (range) this.add_icon_into_paragraph(contents, this.paragraph_of(range.endContainer, contents), item, toc);
+        } catch (error) {
+          console.warn('Candle Reader comment bubble could not be placed:', cfi, error);
         }
-      }
-
-      // 深度优先遍历
-      var segment_id = 0;
-      var currentNode = toc.elem;
-
-      // 从起始节点开始遍历到结束节点
-      while (segment_id <= max_segment_id && currentNode) {
-        const node_name = currentNode.nodeName.toUpperCase();
-          if (node_name === "P" || node_name[0] === "H") {
-            this.add_icon_into_paragraph(contents, currentNode, segment_id, toc)
-            segment_id ++;
-          }
-          // 如果当前节点有子节点，则进入子节点
-          if (currentNode.firstChild) {
-              currentNode = currentNode.firstChild;
-          // 否则尝试下一个兄弟节点
-          } else if (currentNode.nextSibling) {
-              currentNode = currentNode.nextSibling;
-          // 如果没有子节点和兄弟节点，则回溯到父节点的下一个兄弟节点
-          } else {
-              while (!currentNode.nextSibling && currentNode.parentNode) {
-                  currentNode = currentNode.parentNode;
-              }
-              currentNode = currentNode.nextSibling;
-          }
-      }
-
-      // 标记已渲染图标
-      toc.icons_rendered = true;
+      });
     },
-
-    add_icon_into_paragraph: function (contents, elem, segment_id, toc) {
-      const state = toc.summary[segment_id];
-      if (state === undefined) {
-        return;
-      }
-      console.log("添加评论图标：", segment_id, elem, state)
-
+    add_icon_into_paragraph: function (contents, elem, item, toc) {
       // 检查是否已经添加了评论图标，避免重复添加
       if (elem.querySelector('.comment-icon')) {
         return;
       }
 
-      const cfi = new ePub.CFI(elem, contents.cfiBase).toString();
-      const count = state.reviewNum;
-      const is_hot = state.is_hot ? "hot-comment" : "";
-
       // 创建评论气泡：气泡即容器，评论数作为内容天然居中
       const doc = contents.document;
       const commentContainer = doc.createElement("div");
-      commentContainer.className = `comment-icon ${is_hot}`;
+      commentContainer.className = 'comment-icon';
       const commentCount = doc.createElement("span");
       commentCount.className = 'comment-count';
-      commentCount.textContent = String(count);
+      commentCount.textContent = String(item.count);
       commentContainer.appendChild(commentCount);
 
       // 将评论组件添加到段落末尾（内联跟随文字）
@@ -1597,37 +1475,20 @@ export default {
 
       commentContainer.addEventListener('click', (event) => {
         event.stopPropagation();
-        console.log("点击评论按钮", toc.chapter_id, segment_id, cfi)
-        this.show_selected_comments(toc, segment_id, cfi);
+        this.open_comments('paragraph', { toc, contents, ...this.paragraph_location(elem, contents), paragraph_cfi: String(item.paragraph_cfi) });
       });
     },
-    show_selected_comments: function (toc, segment_id, cfi) {
-      if (!this.comments_enabled) return;
-      const request = this.comments_request;
-      // 重置状态
-      this.comments = [];
-      this.comments_location = {
-        toc: toc,
-        cfi: cfi,
-        segment_id: segment_id,
+    refresh_comment_icons: function () {
+      this.comments_request++;
+      if (!this.rendition) return;
+      for (const contents of this.rendition.getContents()) {
+        contents.document.querySelectorAll('.comment-icon').forEach(icon => icon.remove());
       }
-
-      // ID 不存在的话，说明压根就没评论，不用查询了
-      if (toc.chapter_id === undefined) {
-        this.set_menu("comments")
-        return;
+      if (this.comments_enabled && this.current_toc?.elem) {
+        delete this.current_toc.load_time;
+        const contents = this.rendition.getContents().find(c => c.document === this.current_toc.elem.ownerDocument);
+        if (contents) this.load_comments_summary(contents, this.current_toc);
       }
-      const url = `/api/review/list?book_id=${this.book_id}&chapter_id=${toc.chapter_id}&segment_id=${segment_id}&cfi=${cfi}`;
-      this.$backend(url).then(rsp => {
-        if (!this.comments_enabled || request !== this.comments_request) return;
-        this.comments = rsp.data.list || [];
-        this.set_menu("comments")
-        // this.set_menu("comments");
-      })
-    },
-    on_login_user: function(user_data) {
-      this.user = user_data;
-      this.is_login = true;
     },
     retryLoad: function() {
       // 重置状态并重新加载电子书
@@ -1640,8 +1501,8 @@ export default {
           this.loading = true;
         }, 50);
 
-        // 清除可能存在的旧定时器
-        clearTimeout(this.loadingTimeout);
+        // 停掉还在进行的上一次加载，避免两份正文叠在一起
+        try { this.rendition?.destroy(); this.book?.destroy(); } catch (error) { /* noop */ }
 
         // 重新初始化并加载电子书
         this.book = ePub(this.book_url);
@@ -1656,14 +1517,7 @@ export default {
         this.init_listeners();
         this.init_themes();
 
-        // 重新设置超时定时器
-        this.loadingTimeout = setTimeout(() => {
-          if (this.loading) {
-            console.warn('电子书加载超时，显示提示框');
-            this.loading = false;
-            this.showTimeoutDialog = true;
-          }
-        }, 10000);
+        this.start_load_timer();
 
         // 使用 book_url 作为唯一标识，为每个书籍存储独立的阅读位置
         const positionKey = `lastReadPosition_${this.book_url}`;
@@ -1673,33 +1527,42 @@ export default {
           const target = savedPosition || this.display_url;
           return target ? this.rendition.display(target) : this.rendition.display();
         })
-        .then(() => {
-          clearTimeout(this.loadingTimeout);
-          // 确保覆盖层隐藏
-          this.loading = false;
-        })
-        .catch(error => {
-          clearTimeout(this.loadingTimeout);
-          console.error('加载电子书失败:', error);
-          // 确保覆盖层隐藏并显示错误对话框
-          this.loading = false;
-          this.showTimeoutDialog = true;
-        });
+        .then(this.on_book_loaded)
+        .catch(this.on_book_load_failed);
 
         // 监听 relocated 事件，保存当前阅读位置，使用 book_url 作为唯一标识
         this.rendition.on('relocated', (location) => {
           localStorage.setItem(positionKey, location.start.cfi);
         });
       } catch (error) {
-        console.error('重试加载过程中出现错误:', error);
-        // 确保覆盖层隐藏并显示错误对话框
-        this.loading = false;
-        this.showTimeoutDialog = true;
+        this.on_book_load_failed(error);
       }
+    },
+    // 超过 LOAD_TIMEOUT_MS 仍未显示正文时提示「加载较慢」，但不中断加载；加载完成后自动关闭提示。
+    start_load_timer: function () {
+      clearTimeout(this.loadingTimeout);
+      this.load_failed = false;
+      this.loadingTimeout = setTimeout(() => {
+        if (this.loading) {
+          console.warn('电子书加载较慢，显示提示框');
+          this.showTimeoutDialog = true;
+        }
+      }, LOAD_TIMEOUT_MS);
+    },
+    on_book_loaded: function () {
+      clearTimeout(this.loadingTimeout);
+      this.loading = false;
+      this.showTimeoutDialog = false;
+    },
+    on_book_load_failed: function (error) {
+      clearTimeout(this.loadingTimeout);
+      console.error('加载电子书失败:', error);
+      this.loading = false;
+      this.load_failed = true;
+      this.showTimeoutDialog = true;
     },
   },
   mounted: function () {
-    if (this.initial_book_id) this.book_id = Number(this.initial_book_id);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.type = 'text/css';
@@ -1719,37 +1582,12 @@ export default {
       Object.assign(this.settings, normalizeNoteSettings(saved));
     }
     this.initialize_annotations();
+    this.load_user();
     this.is_debug_signal = this.debug;
     this.is_debug_click = this.debug;
 
-    // 添加加载超时机制，10秒后显示提示框
-    this.loadingTimeout = setTimeout(() => {
-      if (this.loading) {
-        console.warn('电子书加载超时，显示提示框');
-        this.loading = false;
-        this.showTimeoutDialog = true;
-      }
-    }, 10000);
-
+    this.start_load_timer();
     this.loading = true;
-    this.load_unread_count();
-
-    this.$backend(`/api/user/info`).then(rsp => {
-      if (!this.settings.notes_enabled) this.is_login = rsp.err === "ok";
-      if (rsp.err == "ok") {
-        this.user = rsp.data;
-      } else if (rsp.err === "network_error") {
-        // 处理网络错误，不设置用户信息，保持当前状态
-        console.log('网络错误，无法获取用户信息，保持当前状态');
-      } else {
-        // 其他错误，如用户不存在，设置为未登录
-        this.user = null;
-      }
-    })
-    .catch(error => {
-      console.error('获取用户信息失败:', error);
-    })
-
 
     this.book = ePub(this.book_url);
 
@@ -1765,15 +1603,6 @@ export default {
       console.log(metadata);
       this.book_meta = metadata;
       this.book_title = metadata.title;
-      const url = `/api/review/book?title=${this.book_title}`;
-      this.$backend(url).then(rsp => {
-        if (rsp.err == "ok") {
-          this.book_id = rsp.data.id;
-        }
-      })
-      .catch(error => {
-        console.error('获取书籍ID失败:', error);
-      })
     })
     .catch(error => {
       console.error('加载书籍元数据失败:', error);
@@ -1803,8 +1632,7 @@ export default {
       return target ? this.rendition.display(target) : this.rendition.display();
     })
     .then(() => {
-      clearTimeout(this.loadingTimeout);
-      this.loading = false;
+      this.on_book_loaded();
 
       // 初始化亮度、字体大小，并在正文渲染后再应用一次主题（确保背景图/透明/文字色就位）
       const brightness = this.settings.brightness / 100;
@@ -1812,12 +1640,7 @@ export default {
       this.rendition.themes.fontSize(this.settings.font_size + 'px');
       this.apply_theme(this.settings.theme);
     })
-    .catch(error => {
-      clearTimeout(this.loadingTimeout);
-      console.error('加载电子书失败:', error);
-      this.loading = false;
-      this.showTimeoutDialog = true;
-    })
+    .catch(this.on_book_load_failed)
   },
   data: () => ({
     loading: true,
@@ -1844,11 +1667,9 @@ export default {
     wide_screen: 1000, // 宽屏尺寸
     comments_refresh_time: 10 * 60 * 100, // 10min
 
-    user: null,
-    is_login: true,
+    user: null, // 当前读者，由宿主回调提供；游客为 null
     book_title: "",
     book_meta: null,
-    book_id: 0,
     alert_msg: "秉烛夜读",
     rendition: null,
     auto_close: false,
@@ -1858,9 +1679,7 @@ export default {
       value: "",
       panels: {
         toc: false,
-        more: false,
         settings: false,
-        comments: false,
         annotations: false,
         ai: false,
       }
@@ -1871,33 +1690,23 @@ export default {
     panel_closing: null,
     panel_entry_ref: 'panelEntryAnnotations',
     comments_request: 0,
-    book_review_request: 0,
-    comments: [],
-    annotations: [],
-    annotations_loading: false,
-    annotations_error: "",
     annotation_repository: null,
-    annotation_list_request: 0,
     annotation_chapter_request: 0,
-    chapter_annotation_count: 0,
     annotation_saving: false,
     annotation_editor_open: false,
     annotation_editor_location: null,
+    annotation_editor_record: null, // 正在编辑的已有评论
+    annotation_editor_type: 'note', // note | book_comment
     annotation_editor_content: "",
     annotation_editor_error: "",
     annotation_editor_private: false,
-    selection_annotation_cfi: '',
+    comment_paragraph: null, // 「本段评论」当前所指的段落
     selection_preview_rects: [],
     annotation_feedback_visible: false,
     annotation_feedback_message: "",
     annotation_feedback_error: false,
     rendered_annotations: [],
     rendered_annotation_ids: new Set(),
-    book_reviews: [], // 本书评论 feed（来自 /api/review/book/list）
-    book_review_sort: 'latest', // 本书评论排序：latest | hot
-    show_login: false, // 登录对话框（评论面板「点击登录」）
-    show_user_center: false, // 用户设置弹层（评论面板 ⚙️）
-    comments_location: {}, // 评论内容的位置
     selected_location: {}, // 选中内容的位置
 
     current_toc_title: "",
@@ -1910,10 +1719,12 @@ export default {
 
     is_debug_signal: false,
     is_debug_click: false,
-    unread_count: 0,
     is_handlering_selected_content: false,
+    mouse_down_point: null,
+    selection_active: false, // epub.js 报告选中文字后为 true，取消选中或收起工具栏后复位
     check_if_selected_content: false,
     showTimeoutDialog: false,
+    load_failed: false, // 区分「加载较慢」与「加载失败」
     show_theme_dialog: false,
     audiobook_open: false,
   })
@@ -1963,7 +1774,7 @@ export default {
   z-index: 999;
   width: max-content;
   max-width: calc(100vw - 16px);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.3);
   border-radius: 12px;
   background: rgb(var(--v-theme-surface));
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
@@ -2086,6 +1897,14 @@ export default {
   .annotation-editor-footer { padding-inline: 16px; }
 }
 
+/* 阅读器占满整个页面：页面本身固定不滚动，iOS 上拖动正文时整页不会回弹，地址栏也不会收起导致正文重新排版。 */
+html, body {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 #main {
   height: 100%;
   width: 100%;
@@ -2145,7 +1964,29 @@ export default {
   position: fixed !important;
 }
 
-/* 小屏会同时显示目录、主题、笔记等入口；覆盖 Vuetify 的按钮最小宽度，避免两端入口被裁掉。 */
+/* 评论抽屉占底部菜单上方可用区域的 90%，顶部 10% 留给阅读上下文与点击收起。 */
+.v-bottom-sheet.annotation-bottom-sheet > .v-bottom-sheet__content.v-overlay__content { height: 90%; max-height: 90%; }
+.annotation-sheet-body { height: 100%; min-height: 0; }
+.annotation-editor-book-hint { margin: 0 0 4px; }
+
+/* 桌面端改为覆盖式侧边栏：目录在左，评论和设置在右；不压缩正文宽度，避开顶部栏，底部菜单保持可用。 */
+@media (min-width: 850px) {
+  .v-bottom-sheet.reader-side-left > .v-bottom-sheet__content.v-overlay__content,
+  .v-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content {
+    align-self: flex-end;
+    height: calc(100% - 48px) !important;
+    max-height: none !important;
+    margin: 0;
+    overflow-y: auto;
+    border-radius: 0;
+    background: rgb(var(--v-theme-surface));
+  }
+  .v-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { left: auto; right: 0; width: 420px; border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
+  .v-bottom-sheet.reader-side-left > .v-bottom-sheet__content.v-overlay__content { left: 0; right: auto; width: 300px; border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
+  .v-bottom-sheet.settings-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { width: 380px; }
+}
+
+/* 小屏会同时显示目录、主题、评论等入口；覆盖 Vuetify 的按钮最小宽度，避免两端入口被裁掉。 */
 .v-bottom-navigation .v-bottom-navigation__content > .v-btn {
   min-width: 0 !important;
   flex: 1 1 0;

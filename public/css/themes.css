@@ -41,6 +41,17 @@
 }
 
 /* 评论数：绝对居中叠在气泡体内（不受段落 text-align:justify 影响；底部留出气泡尾巴） */
+/* 气泡插在书本自己的段落里：书的 CSS 常给段落设首行缩进、行高、字距（阅读器的行距字距设置也会以 !important 作用到全部元素），
+   这些会继承进气泡把数字挤偏，这里统一归零。 */
+.comment-icon,
+.comment-icon .comment-count {
+  text-indent: 0 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  font-style: normal;
+  font-weight: normal;
+}
+
 .comment-count {
   position: absolute;
   left: 0;

@@ -33,8 +33,9 @@ for (const width of [320, 402]) {
     })
     let previousBottom = reference.bottom
     for (const row of geometry) {
-      expect(row.height).toBe(reference.height)
-      expect(row.top - previousBottom).toBe(reference.gap)
+      // 面板入场动画中的坐标带亚像素误差，按 0.01px 精度比较。
+      expect(row.height).toBeCloseTo(reference.height, 2)
+      expect(row.top - previousBottom).toBeCloseTo(reference.gap, 2)
       previousBottom = row.bottom
       expect(row.labelLeft).toBe(geometry[0].labelLeft)
       expect(row.switchRight).toBe(geometry[0].switchRight)

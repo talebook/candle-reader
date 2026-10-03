@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="./favicon.ico" />
+  <!-- demo:style -->
+  <meta name="theme-color" content="#F6F6F6" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>秉烛夜读 · 评论功能演示（西游记）</title>
+  <!-- JSZip 必须在 epub.js 之前加载 -->
+  <script src="./js/jszip-v3.10.1.min.js"></script>
+  <script src="./js/epub-v0.3.88.js"></script>
+  <style>
+    /* 层级低于阅读器的面板与独立页面：打开评论时演示条自动被盖住，不挡操作。 */
+    #demo-bar { position: fixed; z-index: 200; top: 56px; right: 8px; max-width: min(320px, calc(100vw - 16px)); font: 12px/1.6 system-ui, sans-serif; color: #fff; background: rgba(32, 51, 63, .94); border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .28); }
+    #demo-bar summary { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; list-style: none; white-space: nowrap; }
+    #demo-bar summary::-webkit-details-marker { display: none; }
+    #demo-bar .demo-body { padding: 0 12px 10px; }
+    #demo-bar button { margin: 4px 6px 4px 0; padding: 4px 10px; font: inherit; color: #20333f; background: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+    #demo-bar ul { margin: 6px 0 0; padding-left: 18px; }
+    #demo-bar b { color: #ffd479; font-weight: 600; }
+  </style>
+  <script type="module">
+    // 演示页：阅读器 + 纯内存版宿主。所有划线、评论、回复、赞踩和登录态都经 annotation_callbacks，
+    // 不请求任何后端；刷新页面后数据重置。真实接入方式与这里完全相同，只是回调改为请求宿主的接口。
+    // make dist 会把这一行改成打包后的 ./candle-reader.es.js，并在上面的 demo:style 处补上样式表。
+    import { Reader } from './src/main.js'
+    import { createMemoryHost } from './demo/memory-host.js'
+
+    const ME = { id: 1, nickname: '悟空迷', avatar: '' }
+    const params = new URLSearchParams(location.search)
+    const host = createMemoryHost({ user: params.has('guest') ? null : ME })
+    const reader = () => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    const ago = minutes => new Date(Date.now() - minutes * 60000).toISOString()
+    const other = (name, id) => ({ author_name: name, author_id: 1000 + id })
+    const mine = { author_name: ME.nickname, author_id: ME.id }
+
+    // ---- 示例数据：整书评论在启动时准备，章节与段落评论在第一次读到该章时按真实段落位置准备 ----
+    host.add({ ...other('三藏', 1), annotation_type: 'book_comment', chapter: '', content: '八十一难，一难都少不得。小时候看热闹，长大了才看出取经路上全是人情世故。', like_count: 36, dislike_count: 2, created_at: ago(60 * 26) })
+    const bookTalk = host.add({ ...other('白龙马', 2), annotation_type: 'book_comment', chapter: '', content: '最喜欢前七回，大闹天宫写得酣畅淋漓。', like_count: 18, created_at: ago(60 * 50) })
+    host.add({ ...other('沙和尚', 3), root_id: bookTalk.id, content: '后面的取经路其实更耐读。', like_count: 4, created_at: ago(60 * 40) })
+    host.add({ ...mine, annotation_type: 'book_comment', chapter: '', is_private: true, content: '（私密）打算今年把原著完整读一遍，这是第一遍的记录。', created_at: ago(60 * 5) })
+
+    const seeded = new Set()
+    function seedChapter(chapter) {
+      if (!chapter || seeded.has(chapter)) return
+      const r = reader()
+      const toc = r.current_toc
+      if (!toc?.elem || String(toc.label).trim() !== chapter) return
+      const contents = r.rendition.getContents().find(c => c.document === toc.elem.ownerDocument)
+      if (!contents) return
+      // 取本章标题之后的正文段落。
+      const paragraphs = Array.from(contents.document.querySelectorAll('p')).filter(p => p.textContent.trim().length > 40 && (toc.elem.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING))
+      if (paragraphs.length < 6) return
+      seeded.add(chapter)
+      const at = index => {
+        const location = r.paragraph_location(paragraphs[index], contents)
+        return { chapter, cfi: location.paragraph_cfi, range_cfi: location.paragraph_cfi, quote_text: location.paragraph_quote_text }
+      }
+      const first = at(0), second = at(2), third = at(5)
+
+      // 第一段：别人的公开评论，其中一条带多层回复。
+      const hot = host.add({ ...other('花果山猴', 11), ...first, content: '开篇这段写天地之数，气象很大，一下子就把人带进神话里了。', like_count: 42, dislike_count: 1, created_at: ago(90) })
+      const r1 = host.add({ ...other('菩提弟子', 12), root_id: hot.id, content: '是的，十二万九千六百岁为一元，古人的宇宙观很浪漫。', like_count: 9, created_at: ago(80) })
+      const r2 = host.add({ ...mine, root_id: hot.id, thread_id: r1.id, reply_to_id: r1.id, reply_to_name: r1.author_name, content: '原来是邵雍《皇极经世》里的说法。', like_count: 2, created_at: ago(70) })
+      host.add({ ...other('花果山猴', 11), root_id: hot.id, thread_id: r1.id, reply_to_id: r2.id, reply_to_name: ME.nickname, content: '涨知识了，谢谢。', created_at: ago(60) })
+      host.add({ ...other('天蓬', 13), root_id: hot.id, content: '我每次都想跳过这段直接看石猴出世，哈哈。', like_count: 5, dislike_count: 3, created_at: ago(30) })
+      host.add({ ...other('太白金星', 14), ...first, content: '这里的韵文读出声来特别有节奏。', like_count: 7, created_at: ago(200) })
+
+      // 第二段：我的公开评论（别人回复过），以及一条由公开改成私密、回复只有我能看的评论。
+      const myPublic = host.add({ ...mine, ...second, content: '这一段的铺垫很细，后面每个伏笔都能在这里找到影子。', like_count: 6, created_at: ago(15) })
+      host.add({ ...other('卷帘', 15), root_id: myPublic.id, content: '同感，二刷才发现。', like_count: 1, created_at: ago(10) })
+      const myPrivate = host.add({ ...mine, ...second, is_private: true, content: '（私密）这句可以抄进读书笔记。', created_at: ago(8) })
+      host.add({ ...other('菩提弟子', 12), root_id: myPrivate.id, content: '这条是评论还公开时别人留下的回复，现在只有你能看到。', created_at: ago(300) })
+
+      // 第三段：我的私密划线（正文里会画出黄色标记）。
+      const quote = third.quote_text.slice(0, 24)
+      const range = contents.document.createRange()
+      const text = contents.document.createTreeWalker(paragraphs[5], NodeFilter.SHOW_TEXT).nextNode()
+      range.setStart(text, 0)
+      range.setEnd(text, Math.min(text.length, 24))
+      host.add({ ...mine, chapter, annotation_type: 'highlight', is_private: true, cfi: contents.cfiFromRange(range), range_cfi: contents.cfiFromRange(range), quote_text: range.toString() || quote, color: 'yellow', created_at: ago(5) })
+
+      // 再补 30 条本章评论，用来体验滚动分页（不挂在具体段落上，所以不计入段尾气泡）。
+      const lines = ['石猴出世这段百读不厌。', '美猴王的称呼原来是这么来的。', '水帘洞真是个好地方。', '这回的诗词比想象中多。', '读到这里想起了八六版电视剧。']
+      for (let i = 0; i < 30; i++) host.add({ ...other(`书友${i + 1}`, 100 + i), chapter, content: lines[i % lines.length], like_count: i % 4, created_at: ago(400 + i * 37) })
+    }
+
+    // 读到新的一章时先准备示例数据，再交给内存宿主处理。
+    const callbacks = { ...host.callbacks }
+    for (const name of ['load', 'list', 'summary']) {
+      callbacks[name] = query => { try { seedChapter(query.chapter) } catch (error) { console.warn('演示数据准备失败：', error) } return host.callbacks[name](query) }
+    }
+    // 登录由宿主负责：这里用一个确认框代替登录页。
+    callbacks.login = async () => {
+      if (window.confirm(`演示：以「${ME.nickname}」的身份登录？`)) setUser(ME)
+    }
+
+    function setUser(user) {
+      host.setUser(user)
+      document.getElementById('demo-identity').textContent = user ? user.nickname : '游客'
+      document.getElementById('demo-toggle').textContent = user ? '切换为游客' : `以「${ME.nickname}」登录`
+      const r = reader()
+      r.load_user().then(() => { r.$refs.comments?.reload(); r.on_comments_changed() })
+    }
+
+    // ?fresh=1：忘掉上次读到的位置，从第一回开始（示例评论按第一回的段落准备）。
+    if (params.has('fresh')) {
+      try { localStorage.removeItem('lastReadPosition_./demo/xi-you-ji.epub') } catch (error) { /* 无痕模式等情况下不可用 */ }
+    }
+
+    new Reader('#app', {
+      debug: false,
+      themes_css: './css/themes.css',
+      book_url: './demo/xi-you-ji.epub',
+      // 直接从第一回开始，跳过电子书的版权页。
+      display_url: params.get('at') || '5039418960600707614_23962-0-0.txt.xhtml#chapter-001',
+      book_id: 'demo-xi-you-ji',
+      annotation_callbacks: callbacks,
+    })
+
+    window.__demoHost = host
+
+    // ?diag=1：诊断面板。只在阅读器外面旁观、记录事件，不参与选中逻辑，用于在真机上排查选中文字后工具栏不出现的问题。
+    if (params.has('diag')) {
+      const lines = []
+      const log = text => {
+        lines.push(`${new Date().toTimeString().slice(3, 8)} ${text}`)
+        document.getElementById('demo-diag').textContent = lines.slice(-16).join('\n')
+      }
+      document.getElementById('demo-bar').open = true
+      window.addEventListener('error', event => log(`错误 ${event.message}`))
+      window.addEventListener('unhandledrejection', event => log(`异常 ${event.reason?.message || event.reason}`))
+      const watched = new WeakSet()
+      const watch = doc => {
+        if (!doc || watched.has(doc)) return
+        watched.add(doc)
+        let last = ''
+        doc.addEventListener('selectionchange', () => {
+          const selection = doc.getSelection()
+          const text = `选区变化 rangeCount=${selection?.rangeCount} 文字="${String(selection || '').slice(0, 8)}"`
+          if (text !== last) log(last = text)
+        })
+        for (const name of ['touchstart', 'touchend', 'click']) doc.addEventListener(name, () => log(name), { passive: true })
+      }
+      const attach = setInterval(() => {
+        const r = document.querySelector('#app').__vue_app__?._instance?.subTree?.component?.proxy
+        if (!r?.rendition) return
+        clearInterval(attach)
+        r.rendition.on('selected', cfi => {
+          log(`epub.js selected ${String(cfi).slice(-24)}`)
+          // 工具栏没出现时，看是设置关掉了，还是位置算出来不对。
+          setTimeout(() => log(`设置 笔记=${r.settings.notes_enabled} 选中工具栏=${r.settings.show_selection_toolbar} 位置=${Math.round(r.toolbar_left)},${Math.round(r.toolbar_top)} 窗口=${innerWidth}x${innerHeight}`), 50)
+        })
+        r.rendition.on('rendered', () => r.rendition.getContents().forEach(c => watch(c.document)))
+        r.rendition.getContents().forEach(c => watch(c.document))
+        let shown = false
+        setInterval(() => {
+          r.rendition.getContents().forEach(c => watch(c.document))
+          const visible = r.is_toolbar_visible()
+          if (visible !== shown) log(visible ? `工具栏显示 @ ${Math.round(r.toolbar_left)},${Math.round(r.toolbar_top)}` : '工具栏隐藏')
+          shown = visible
+        }, 100)
+        log('诊断已就绪')
+      }, 200)
+    }
+    document.getElementById('demo-identity').textContent = host.getUser()?.nickname || '游客'
+    document.getElementById('demo-toggle').textContent = host.getUser() ? '切换为游客' : `以「${ME.nickname}」登录`
+    document.getElementById('demo-toggle').onclick = () => setUser(host.getUser() ? null : ME)
+    document.getElementById('demo-reset').onclick = () => location.reload()
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <details id="demo-bar">
+    <summary>演示 · 当前身份：<b id="demo-identity"></b></summary>
+    <div class="demo-body">
+      <button id="demo-toggle" type="button"></button><button id="demo-reset" type="button">重置数据</button>
+      <pre id="demo-diag" style="margin:6px 0;white-space:pre-wrap;max-height:40vh;overflow:auto;font-size:11px"></pre>
+      <div>数据只在内存里，刷新即重置。可以试：</div>
+      <ul>
+        <li>底部「评论」：本章评论，滚动到底自动加载</li>
+        <li>「查看更多评论」：本章／全书／我的</li>
+        <li>点任意评论进详情：回复、回复的回复、修改、删除</li>
+        <li>赞、踩（再点一次取消）</li>
+        <li>正文选中文字：划线、写评论、看本段评论</li>
+        <li>正文段尾的数字气泡：进入本段评论</li>
+        <li>切换为游客后再点赞或写评论：引导登录</li>
+        <li>窗口拉宽到 850px 以上：侧边栏布局</li>
+      </ul>
+    </div>
+  </details>
+</body>
+</html>

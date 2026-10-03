@@ -139,3 +139,25 @@ test.describe('图片皮肤 iframe 渲染回归', () => {
     expect(await readIframeStyle(page, 'body', 'backgroundColor')).toBe('rgb(26, 26, 26)')
   })
 })
+
+test('开启选中工具栏时正文关闭 iOS 系统文字菜单，关闭工具栏后恢复 @epub', async ({ page }) => {
+  await setupApiMock(page)
+  await gotoReader(page)
+  await waitForReaderRendered(page)
+  // Chromium 不认识 -webkit-touch-callout，样式表里留不下来，所以直接检查注入给正文的样式规则。
+  const callout = () => page.evaluate(() => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    let rules
+    const original = r.rendition.themes.default
+    r.rendition.themes.default = value => { rules = value; return original.call(r.rendition.themes, value) }
+    r.apply_custom_style()
+    r.rendition.themes.default = original
+    return rules['body, body *']['-webkit-touch-callout'] || null
+  })
+  expect(await callout()).toBe('none !important')
+  await page.evaluate(() => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    r.update_settings({ ...r.settings, show_selection_toolbar: false })
+  })
+  expect(await callout()).toBe(null)
+})

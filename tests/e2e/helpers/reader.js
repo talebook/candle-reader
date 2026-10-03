@@ -34,19 +34,18 @@ async function readState(page, key) {
   }, key)
 }
 
-/**
- * 模拟“选中段落 -> 发段评”的入口：调用 show_selected_comments，
- * 它会写入 comments_location、拉取评论列表并打开评论面板。
- * 相比裸调 set_menu('comments')，这里能让 comments_location 就绪，
- * 从而支持后续“发表评论”用例。
- */
-async function openCommentsPanel(page, toc) {
-  await page.evaluate((t) => {
-    const app = document.querySelector('#app').__vue_app__
-    const epub = app._instance.subTree.component
-    const tocObj = t || { label: '第一章', chapter_id: 7 }
-    epub.proxy.show_selected_comments(tocObj, 3, 'epubcfi(/6/4!/4/2)')
-  }, toc)
+const HOST_URL = `${HARNESS_URL}?host=1`
+
+/** 取 EpubReader 组件实例的句柄，便于在页面内直接调用其方法。 */
+async function readerProxy(page) {
+  return page.evaluateHandle(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy)
+}
+
+/** 打开注入了内存版宿主（tests/e2e/fixtures/mock-host.js）的阅读器，并等到正文与当前章节就绪。 */
+async function gotoHostReader(page, query = '') {
+  await page.goto(`${HOST_URL}${query}`)
+  await waitForReaderRendered(page)
+  await page.waitForFunction(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.current_toc)
 }
 
 /**
@@ -80,4 +79,4 @@ async function readIframeStyle(page, selector, prop) {
   }, { selector, prop })
 }
 
-module.exports = { HARNESS_URL, gotoReader, openPanel, readState, openCommentsPanel, waitForReaderRendered, readIframeStyle }
+module.exports = { HARNESS_URL, HOST_URL, gotoReader, gotoHostReader, openPanel, readState, readerProxy, waitForReaderRendered, readIframeStyle }

@@ -2,43 +2,70 @@
 
 秉烛夜读。
 
-## 划线与笔记接入
+## 演示
 
-阅读器负责文字选择工具栏、划线、笔记编辑、列表、定位和设置开关。宿主只需在初始化时按需注入异步数据回调：
+```bash
+make dev    # 打开 http://localhost:5001/demo.html
+make dist   # 打包，并生成可直接部署的 dist/demo.html
+```
+
+演示页用《西游记》和一个纯内存版宿主（`demo/memory-host.js`，完整实现下面的回调契约），可以体验划线、评论、回复、赞踩、「我的」和游客登录引导；数据只在内存里，刷新即重置。
+
+## 划线与评论接入
+
+划线、文字评论和整书评论是同一种记录，统称「评论」。阅读器负责全部界面：选区工具栏、评论抽屉、完整评论页、评论详情页、编辑框、赞踩与回复。**阅读器自身不请求任何评论或账号服务**，数据与登录态全部通过初始化时注入的 `annotation_callbacks` 交给宿主：
 
 ```js
 new Reader('#app', {
   book_url: '/books/1/',
   book_id: 1,
   annotation_callbacks: {
-    async load({ book_id, book_url, chapter }) {
-      // 返回 Annotation[]，也可以返回 { annotations: Annotation[] }
-      return api.loadAnnotations({ book_id, chapter })
-    },
-    async save(annotation, { book_id, book_url }) {
-      // 返回 Annotation，也可以返回 { annotation: Annotation }
-      return api.saveAnnotation(book_id, annotation)
-    },
+    async user() {},                    // 当前读者 { id, nickname, avatar }；游客返回 null
+    async login() {},                   // 游客触发互动时调用，由宿主引导登录
+    async load({ chapter }) {},         // 当前读者在本章的记录（用于正文标记），返回 Annotation[]
+    async list({ scope, chapter, paragraph_cfi, cursor, limit }) {},  // 顶层记录分页
+    async summary({ chapter }) {},      // [{ paragraph_cfi, count }]，段尾气泡的公开评论数
+    async get({ id }) {},               // 单条记录
+    async replies({ root_id, cursor, limit }) {},                     // 某条评论的回复分页
+    async save(annotation, { book_id, book_url }) {},                 // 新建或修改，返回保存后的记录
+    async remove({ id }) {},            // 真删除
+    async vote({ id, value }) {},       // value: 1 赞 / -1 踩 / 0 取消；返回 { like_count, dislike_count, user_vote }
   },
 })
 ```
 
-`load` 与 `save` 必须同时提供。`Annotation` 使用以下核心字段：
+除 `save` 外，每个回调的第一个参数都会并入 `{ book_id, book_url }`。`load` 与 `save` 必须同时提供；其余回调缺失时，对应功能会显示明确错误，不会静默改写到本地。
 
-- `id` / `client_id`：稳定标识；
-- `annotation_type`：`highlight` 或 `note`；
-- `chapter`、`cfi`、`quote_text`：章节与 EPUB 定位；
-- `content`、`color`、`is_private`：笔记内容与展示属性。
+分页回调返回 `{ items, next_cursor, has_more }`（也接受纯数组，视为没有下一页）。`list` 的 `scope`：
 
-文字笔记（`note`）只针对一个完整段落：`cfi` 为整段文字的范围，`quote_text` 为整段原文，默认公开，可选择私密。同段内选中不同文字会生成相同的笔记范围，“看想法”按该范围展示文字笔记。跨段选区只能划线，不能创建文字笔记。划线（`highlight`）保留精确选区，固定 `is_private: true`。旧数据不会自动迁移，已有局部文字笔记仍可在全部笔记中查看。
+| scope | 返回 |
+|---|---|
+| `paragraph` | 归属 `paragraph_cfi` 这一段的公开文字评论 |
+| `chapter` | 本章全部公开文字评论，不含整书评论 |
+| `book` | 全书公开评论，含整书评论 |
+| `mine` | 当前读者在本书的全部记录，含私密划线与私密文字 |
 
-不传 `annotation_callbacks` 时，阅读器自动按 `book_id`（缺省时按 `book_url`）隔离并保存到浏览器 `localStorage`。回调已经注入但执行失败时不会静默写入本地，避免宿主数据和本地数据产生不可见分叉。
+公开范围的列表由宿主排序：当前读者自己的在前，再按时间倒序，**排序覆盖整个结果集后再分页**。回复按时间正序。
 
-“设置 → 笔记”是主开关，关闭时停止评论/标记加载、隐藏选区工具栏与已有标记，不删除数据，也不改变两个子选项：
+记录字段：
 
-- 加载章节段落评论：控制章评摘要、章段评论列表与正文图标；本书评论只受笔记主开关控制。
-- 选中后出现工具栏：控制选区工具栏，关闭后仍可查看已有划线笔记。
+- `id` / `client_id`：稳定标识；`save` 按它们判断新建还是修改。
+- `annotation_type`：`highlight`（划线）、`note`（文字评论）、`book_comment`（整书评论）。
+- `is_private`：划线固定 `true`。回复没有自己的公开范围，跟随主评论；主评论为私密时，其回复只对主评论作者可见。
+- `chapter`、`cfi`、`range_cfi`、`quote_text`：`cfi` 是评论归属的位置——划线为精确选区，文字评论为所在段落（跨段选区归属最后一段），整书评论为全书开头；`range_cfi` 保留真实选区。
+- `content`、`created_at`、`author_name`、`is_mine`。
+- `like_count`、`dislike_count`、`user_vote`（`1` / `-1` / `0`）、`reply_count`。
+- 回复：`root_id`（所属主评论）、`reply_to_id`（回复对象，空表示回复主评论）、`reply_to_name`、`thread_id`（所属第一层回复，由宿主根据 `reply_to_id` 推出；第一层回复为空）。
 
-底部固定为目录、白天/夜晚、笔记、设置；统一笔记入口提供划线笔记、当前章评、本书评论（含登录与互动消息），听书移到顶部。主开关关闭时仍保留笔记入口并提示前往设置。
+宿主需要保证：非作者访问私密记录及其回复时按不存在处理；`remove` 主评论时连同全部回复和投票删除，删除第一层回复时连同其下回复删除；私密记录不接受投票和回复。
+
+不传 `annotation_callbacks` 时，阅读器按 `book_id`（缺省时按 `book_url`）隔离并保存到浏览器 `localStorage`：只有当前浏览器这一位读者，公开范围不会真的对他人生效。回调已经注入但执行失败时不会静默写入本地，避免宿主数据和本地数据产生不可见分叉。
+
+“设置”里的「启用划线和笔记功能」是主开关，关闭时停止读取评论数据、隐藏选区工具栏与已有标记，不删除数据，也不改变两个子选项：
+
+- 显示全部划线和评论：控制正文段尾的评论数量气泡。
+- 选中文字后显示工具栏：控制选区工具栏，关闭后仍可查看已有评论。
+
+底部固定为目录、白天/夜晚、评论、设置，听书在顶部。主开关关闭时仍保留评论入口并提示前往设置。完整的交互约定见 `AGENTS.md`。
 
 旧 `readerSettings` 自动迁移：`notes_enabled` 默认取旧 `show_comments || show_annotations`（缺失按开启），`show_comments` 保留，`show_selection_toolbar` 默认取旧 `show_annotations`。已存新字段优先；主开关重新开启恢复数据与子选项偏好。
