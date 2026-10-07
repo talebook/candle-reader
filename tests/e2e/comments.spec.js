@@ -323,3 +323,18 @@ test('桌面端评论是右侧覆盖式侧边栏，目录在左侧，底部菜�
   await expect(drawer(page)).toBeHidden()
   await expect.poll(async () => { const toc = await page.locator('.reader-side-left .v-overlay__content').boundingBox(); return [toc.x, toc.y, toc.width] }).toEqual([0, 48, 300])
 })
+
+test('宿主要求登录才能看评论时，游客看到登录提示，登录后自动加载', async ({ page }) => {
+  await gotoHostReader(page, '&guest=1&locked=1')
+  await nav(page).click()
+  await expect(drawer(page).getByText('登录后查看评论')).toBeVisible()
+  await expect(drawer(page).getByRole('alert')).toHaveCount(0)
+  // 模拟宿主的登录流程：login 回调里完成登录。
+  await page.evaluate(() => {
+    const host = window.__host
+    const original = host.callbacks.login
+    host.callbacks.login = async (...args) => { await original(...args); host.setUser(true) }
+  })
+  await drawer(page).getByRole('button', { name: '去登录' }).click()
+  await expect(drawer(page).locator('.comment-item')).toHaveCount(3)
+})

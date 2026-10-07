@@ -8,7 +8,7 @@
         <button ref="moreEntry" type="button" class="rc-more" @click="open_page">查看更多评论 <v-icon size="20" aria-hidden="true">mdi-chevron-right</v-icon></button>
       </header>
     </div>
-    <comment-list ref="drawerList" :state="drawer" @more="load(drawer)" @retry="retry(drawer)" @open="open_detail"
+    <comment-list ref="drawerList" :state="drawer" @more="load(drawer)" @retry="retry(drawer)" @login="$emit('login')" @open="open_detail"
       @edit="$emit('edit', $event)" @remove="ask_remove" @vote="vote"></comment-list>
     <footer class="rc-footer">
       <v-btn block color="primary" variant="flat" prepend-icon="mdi-plus" @click="write(drawer)">写评论</v-btn>
@@ -30,7 +30,7 @@
           <v-btn variant="tonal" @click="$emit('login')">去登录</v-btn>
         </div>
         <comment-list v-else ref="pageList" :state="page" :tags="page.scope === 'mine'"
-          :empty="page.scope === 'mine' ? '这里还没有你的记录' : '这里还没有公开评论'" @more="load(page)" @retry="retry(page)"
+          :empty="page.scope === 'mine' ? '这里还没有你的记录' : '这里还没有公开评论'" @more="load(page)" @retry="retry(page)" @login="$emit('login')"
           @open="open_detail" @edit="$emit('edit', $event)" @remove="ask_remove" @vote="vote"></comment-list>
       </div>
       <footer class="rc-footer">
@@ -98,7 +98,7 @@ import CommentItem from './CommentItem.vue'
 import CommentList from './CommentList.vue'
 
 const PAGE_SIZE = 20
-const list_state = scope => ({ scope, paragraph_cfi: '', items: [], cursor: null, has_more: false, loading: false, error: '', request: 0 })
+const list_state = scope => ({ scope, paragraph_cfi: '', items: [], cursor: null, has_more: false, loading: false, error: '', need_login: false, request: 0 })
 
 export default {
   name: 'ReaderComments',
@@ -153,7 +153,9 @@ export default {
       if (this.active && this.drawer.scope === 'chapter') this.load(this.drawer, true)
     },
     user: function () {
-      if (this.page_open && this.page.scope === 'mine') this.load(this.page, true)
+      // 登录后重新加载：之前因为需要登录而没有内容的列表，以及「我的」。
+      if (this.drawer.need_login) this.load(this.drawer, true)
+      if (this.page_open && (this.page.scope === 'mine' || this.page.need_login)) this.load(this.page, true)
     },
   },
   mounted: function () {
@@ -181,7 +183,7 @@ export default {
       if (!this.repository) return
       if (reset) {
         state.request++
-        Object.assign(state, { items: [], cursor: null, has_more: false, error: '' })
+        Object.assign(state, { items: [], cursor: null, has_more: false, error: '', need_login: false })
       } else if (state.loading || (!state.has_more && !state.error)) return
       const request = state.request
       state.loading = true
@@ -198,7 +200,10 @@ export default {
         state.cursor = result.next_cursor
         state.has_more = result.has_more
       } catch (error) {
-        if (request === state.request) state.error = error.message || '请稍后重试'
+        if (request !== state.request) return
+        // 宿主以 code 为 need_login 的错误拒绝时，表示需要登录才能查看，显示登录提示而不是错误。
+        state.need_login = error?.code === 'need_login'
+        state.error = error.message || '请稍后重试'
       } finally {
         if (request === state.request) state.loading = false
       }

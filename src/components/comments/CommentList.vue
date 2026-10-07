@@ -1,6 +1,11 @@
 <template>
   <div ref="scroller" class="comment-list" :aria-busy="String(state.loading)" @scroll.passive="maybe_load_more">
-    <div v-if="state.error && !state.items.length" class="comment-state" role="alert">
+    <div v-if="state.need_login && !state.items.length" class="comment-state">
+      <v-icon size="30">mdi-account-lock-outline</v-icon>
+      <p>登录后查看评论</p>
+      <v-btn variant="tonal" @click="$emit('login')">去登录</v-btn>
+    </div>
+    <div v-else-if="state.error && !state.items.length" class="comment-state" role="alert">
       <v-icon size="30">mdi-alert-circle-outline</v-icon>
       <p>评论暂时没能加载</p>
       <p class="comment-state-hint">{{ state.error }}</p>
@@ -35,7 +40,7 @@ import CommentItem from './CommentItem.vue'
 export default {
   name: 'CommentList',
   components: { CommentItem },
-  emits: ['more', 'retry', 'open', 'edit', 'remove', 'vote'],
+  emits: ['more', 'retry', 'login', 'open', 'edit', 'remove', 'vote'],
   props: {
     // { items, has_more, loading, error }
     state: { type: Object, required: true },

@@ -22,6 +22,15 @@
         extra: Number(params.get('extra')) || 0,
       })
       annotationCallbacks = window.__host.callbacks
+      // &locked=1：模拟要求登录才能看评论的宿主（如 Talebook），游客读取列表时以 need_login 拒绝。
+      if (params.has('locked')) {
+        const needLogin = () => Object.assign(new Error('登录后查看评论'), { code: 'need_login' })
+        const guard = name => async (...args) => {
+          if (!(await window.__host.callbacks.user())) throw needLogin()
+          return window.__host.callbacks[name](...args)
+        }
+        annotationCallbacks = { ...annotationCallbacks, list: guard('list'), replies: guard('replies'), login: (...args) => window.__host.callbacks.login(...args) }
+      }
     }
     // ?audiobook=1：像真实宿主一样，把有声书回调翻译成对宿主 HTTP 接口的请求（e2e 里由 Playwright 拦截）。
     const getJson = async (url, options) => {
