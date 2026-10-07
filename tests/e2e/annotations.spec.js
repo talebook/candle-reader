@@ -272,17 +272,18 @@ test('划线等待写入成功才显示标记，成功后不弹保存提示', as
   await expect(page.getByText('划线已保存')).toHaveCount(0)
 })
 
-test('设置可以关闭并重新开启划线笔记功能', async ({ page }) => {
+test('关闭「显示全部划线和评论」不影响评论入口', async ({ page }) => {
   await gotoReader(page)
   await openPanel(page, 'settings')
-  const annotationRow = page.locator('[data-setting=notes_enabled]')
-  await annotationRow.getByRole('switch').uncheck()
-  await expect.poll(() => readState(page, 'settings').then(settings => settings.notes_enabled)).toBe(false)
-  await expect(notesButton(page)).toBeVisible()
-
-  await annotationRow.getByRole('switch').check()
-  await expect.poll(() => readState(page, 'settings').then(settings => settings.notes_enabled)).toBe(true)
-  await expect(notesButton(page)).toBeVisible()
+  await expect(page.locator('[data-setting=notes_enabled]')).toHaveCount(0)
+  const row = page.locator('[data-setting=show_comments]')
+  await row.getByRole('switch').uncheck()
+  await expect.poll(() => readState(page, 'settings').then(settings => settings.show_comments)).toBe(false)
+  await notesButton(page).click()
+  await expect(page.locator('.reader-comments-drawer')).toBeVisible()
+  await openPanel(page, 'settings')
+  await row.getByRole('switch').check()
+  await expect.poll(() => readState(page, 'settings').then(settings => settings.show_comments)).toBe(true)
 })
 
 test('同段不同选区共享整段评论范围，跨段评论归属最后一段', async ({ page }) => {

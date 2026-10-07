@@ -65,6 +65,12 @@
   color: #999999;
 }
 
+/* 评论数叠在气泡体上：夜灰/纯黑的 `.grey *`、`.dark *` 会给所有元素刷不透明底色，
+   评论数必须透明，否则会盖住气泡轮廓（只剩底部尾巴露出） */
+.comment-icon .comment-count {
+  background: transparent;
+}
+
 /* 热评：数字标红 */
 .hot-comment .comment-count {
   color: #ff4444;

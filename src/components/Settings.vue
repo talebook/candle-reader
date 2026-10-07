@@ -103,10 +103,10 @@
 
         <v-list-item v-for="item in switch_options" :key="item.key" class="my-2" :data-setting="item.key">
             <div class="setting-switch-row">
-                <label class="setting-switch-label" :class="{ 'setting-switch-label-disabled': item.child && !opt.notes_enabled }"
+                <label class="setting-switch-label"
                     :id="`setting-${item.key}`" :for="`switch-${item.key}`">{{ item.label }}</label>
                 <v-switch :id="`switch-${item.key}`" class="setting-switch" :model-value="opt[item.key]"
-                    :disabled="item.child && !opt.notes_enabled" :aria-labelledby="`setting-${item.key}`"
+                    :aria-labelledby="`setting-${item.key}`"
                     role="switch" color="primary" density="comfortable" inset hide-details
                     @update:model-value="set_and_emit(item.key, $event)"></v-switch>
             </div>
@@ -153,7 +153,6 @@ export default {
             letter_spacing: this.settings?.letter_spacing || this.opt.letter_spacing,
             brightness: this.settings?.brightness || this.opt.brightness,
             show_comments: this.settings?.show_comments ?? this.opt.show_comments,
-            notes_enabled: this.settings?.notes_enabled ?? this.opt.notes_enabled,
             show_selection_toolbar: this.settings?.show_selection_toolbar ?? this.opt.show_selection_toolbar,
             paging_control: this.settings?.paging_control || this.opt.paging_control,
             wheel_paging: this.settings?.wheel_paging ?? this.opt.wheel_paging,
@@ -198,16 +197,14 @@ export default {
             letter_spacing: 0,
             brightness: 100,
             show_comments: true,
-            notes_enabled: true,
             show_selection_toolbar: true,
             paging_control: "mouse_and_keyboard",
             wheel_paging: true,
         },
         switch_options: [
             { key: 'wheel_paging', label: '使用鼠标滚轮翻页' },
-            { key: 'notes_enabled', label: '启用划线和笔记功能' },
-            { key: 'show_comments', label: '显示全部划线和评论', child: true },
-            { key: 'show_selection_toolbar', label: '选中文字后显示工具栏', child: true },
+            { key: 'show_comments', label: '显示全部划线和评论' },
+            { key: 'show_selection_toolbar', label: '选中文字后显示工具栏' },
         ],
         themes: THEMES,
     })
@@ -219,6 +216,5 @@ export default {
 .reader-settings { padding-inline: max(0px, calc((100% - 560px) / 2)); }
 .setting-switch-row { display: flex; align-items: center; gap: 16px; }
 .setting-switch-label { flex: 1; min-width: 0; line-height: 1.5; cursor: pointer; }
-.setting-switch-label-disabled { opacity: 0.6; cursor: default; }
 .setting-switch { flex: 0 0 auto; --v-input-control-height: 36px; }
 </style>

@@ -74,7 +74,7 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
     }, selection.cfi)
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
     await openPanel(page, 'settings')
-    const row = page.locator('[data-setting=notes_enabled]')
+    const row = page.locator('[data-setting=show_comments]')
     await row.getByRole('switch').uncheck()
     await expect(page.locator('.candle-reader-annotation')).toHaveCount(0)
     await row.getByRole('switch').check()

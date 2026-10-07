@@ -63,7 +63,7 @@ for (const theme of ['white', 'grey']) {
       })
     })
     await page.evaluate(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.set_menu('settings'))
-    await expect(page.locator('[data-setting=notes_enabled]')).toBeVisible()
+    await expect(page.locator('[data-setting=show_comments]')).toBeVisible()
     await page.waitForTimeout(500) // include outgoing Vuetify transitions and delayed focus handlers
     expect(await page.evaluate(() => !!document.activeElement.closest('.v-overlay--active'))).toBe(true)
     expect(await page.evaluate(() => window.panelFocusLog)).toEqual([])
@@ -71,7 +71,7 @@ for (const theme of ['white', 'grey']) {
     await expect(comments).toBeFocused()
 
     await enter(settings)
-    await expect(page.locator('[data-setting=notes_enabled]')).toBeVisible()
+    await expect(page.locator('[data-setting=show_comments]')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(settings).toBeFocused()
 

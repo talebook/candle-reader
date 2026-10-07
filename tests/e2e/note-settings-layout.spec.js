@@ -9,7 +9,7 @@ for (const width of [320, 402]) {
     await gotoReader(page)
     await openPanel(page, 'settings')
     const rows = page.locator('[data-setting]')
-    await expect(rows).toHaveCount(4)
+    await expect(rows).toHaveCount(3)
     await expect(rows.getByRole('button')).toHaveCount(0)
 
     // 在同一帧测量所有行，避免面板入场动画影响相邻行的坐标差。

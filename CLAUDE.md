@@ -3,6 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 > 提交 / 推送 PR 前必须本地跑通 e2e（见 `AGENTS.md`）。通用编码准则见仓库外层 `~/CLAUDE.md`。
+> 架构、职责边界和宿主回调规范见 `DESIGN.md`，改动前先读；改了其中描述的行为或接口要同步更新它。
 
 ## 这是什么
 
