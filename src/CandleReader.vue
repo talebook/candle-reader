@@ -4,8 +4,7 @@
           :debug="debug" :themes_css="themes_css"
           :initial_book_id="book_id"
           :annotation_callbacks="annotation_callbacks"
-          :audiobook_edition_id="audiobook_edition_id"
-          :audiobook_manifest_url="audiobook_manifest_url"
+          :audiobook_callbacks="audiobook_callbacks"
           />
 </template>
 
@@ -41,13 +40,9 @@ export default {
       type: Object,
       default: null
     },
-    audiobook_edition_id: {
-      type: [Number, String],
+    audiobook_callbacks: {
+      type: Object,
       default: null
-    },
-    audiobook_manifest_url: {
-      type: String,
-      default: ''
     }
   },
   data: () => ({

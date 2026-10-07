@@ -68,4 +68,8 @@ new Reader('#app', {
 
 底部固定为目录、白天/夜晚、评论、设置，听书在顶部。完整的交互约定见 `AGENTS.md`。
 
+## 听书接入
+
+传入 `audiobook_callbacks` 后显示「听书」入口。宿主提供章节清单（`manifest`）和时间轴（`timeline`），可选提供收听会话与进度上报（`start_session` / `report_progress` / `end_session`）。阅读器不直接请求有声书接口，音频文件按清单里的 `audio_url` 由浏览器加载。完整契约见 `DESIGN.md` 第 6.3 节。
+
 旧 `readerSettings` 自动迁移：早期的总开关 `notes_enabled` 已去掉，曾经关闭它的读者迁移后两个开关都按关闭处理；`show_comments` 保留，`show_selection_toolbar` 缺失时取旧 `show_annotations`（缺失按开启）。

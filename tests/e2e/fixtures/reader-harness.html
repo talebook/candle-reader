@@ -23,6 +23,27 @@
       })
       annotationCallbacks = window.__host.callbacks
     }
+    // ?audiobook=1：像真实宿主一样，把有声书回调翻译成对宿主 HTTP 接口的请求（e2e 里由 Playwright 拦截）。
+    const getJson = async (url, options) => {
+      const data = await (await fetch(url, { credentials: 'include', ...options })).json()
+      if (data.err !== 'ok' && data.err !== 'progress.conflict') throw new Error(data.msg || data.err)
+      return data
+    }
+    window.__audiobookCalls = []
+    const audiobookCallbacks = {
+      async manifest(query) { window.__audiobookCalls.push({ operation: 'manifest', query }); return getJson('/api/audiobooks/7/manifest') },
+      async timeline({ manifest_id, chapter }) {
+        return (await getJson(chapter.timeline_url || `/api/audiobooks/${manifest_id}/chapters/${chapter.number}/timeline`)).timeline
+      },
+      async start_session({ manifest_id, source, device_id }) {
+        return getJson(`/api/audiobooks/${manifest_id}/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, device_id }) })
+      },
+      async report_progress({ session_id, book_id, book_url, ...progress }) {
+        window.__audiobookCalls.push({ operation: 'report_progress', query: progress })
+        return getJson(`/api/audiobook-sessions/${session_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(progress) })
+      },
+      async end_session({ session_id }) { return getJson(`/api/audiobook-sessions/${session_id}`, { method: 'POST' }) },
+    }
     // 评论与登录态全部走 annotation_callbacks，阅读器自身不请求任何后端；
     // book_url 用 .epub 压缩包，与生产从 talebook 服务取书一致；JSZip 就位后 headless 下可正常解压渲染。
     new Reader('#app', {
@@ -33,8 +54,7 @@
       display_url: "",
       book_id: 101,
       annotation_callbacks: annotationCallbacks,
-      audiobook_edition_id: audiobookEnabled ? 7 : null,
-      audiobook_manifest_url: audiobookEnabled ? '/api/audiobooks/7/manifest' : '',
+      audiobook_callbacks: audiobookEnabled ? audiobookCallbacks : null,
     })
   </script>
 </head>

@@ -97,10 +97,11 @@ import {
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  editionId: { type: [Number, String], default: null },
-  manifestUrl: { type: String, default: '' },
+  // 宿主回调的包装（src/audiobook.js）
+  repository: { type: Object, required: true },
+  // 本机记住收听位置用的键，通常是书的 id
+  storageId: { type: [Number, String], default: '' },
   rendition: { type: Object, default: null },
-  request: { type: Function, required: true },
 })
 
 const emit = defineEmits(['close', 'segment-change'])
@@ -132,10 +133,10 @@ let lastProgressClock = 0
 
 const chapters = computed(() => manifest.value?.chapters || [])
 const chapterIndex = computed(() => chapters.value.findIndex(item => item.id === chapter.value?.id))
-const storageKey = computed(() => `candle:audiobook:${props.editionId || 'manifest'}`)
+const storageKey = computed(() => `candle:audiobook:${props.storageId || 'manifest'}`)
 
 watch(
-  () => [props.visible, props.editionId, props.manifestUrl],
+  () => [props.visible, props.repository],
   ([visible]) => {
     if (visible) void loadManifest()
   },
@@ -151,12 +152,8 @@ watch(
   { immediate: true },
 )
 
-function manifestEndpoint() {
-  return props.manifestUrl || (props.editionId ? `/api/audiobooks/${props.editionId}/manifest` : '')
-}
-
 function loadManifest() {
-  if (manifest.value || !manifestEndpoint()) return Promise.resolve()
+  if (manifest.value || !props.repository) return Promise.resolve()
   if (manifestPromise) return manifestPromise
   manifestPromise = loadManifestOnce().finally(() => {
     manifestPromise = null
@@ -168,10 +165,7 @@ async function loadManifestOnce() {
   loading.value = true
   error.value = ''
   try {
-    const response = await props.request(manifestEndpoint())
-    if (response.err !== 'ok' || !response.manifest?.chapters?.length) {
-      throw new Error(response.msg || '当前书籍没有可播放章节')
-    }
+    const response = await props.repository.manifest()
     manifest.value = response.manifest
     progressVersion.value = response.progress?.version || 0
 
@@ -190,9 +184,13 @@ async function loadManifestOnce() {
 }
 
 async function loadTimeline(target) {
-  const endpoint = target.timeline_url || `/api/audiobooks/${manifest.value.id}/chapters/${target.number}/timeline`
-  const response = await props.request(endpoint)
-  timeline.value = response.err === 'ok' ? (response.timeline?.segments || []) : []
+  try {
+    timeline.value = await props.repository.timeline({ manifest_id: manifest.value.id, chapter: target })
+  } catch (cause) {
+    // 没有时间轴也能播放，只是不能跟随高亮。
+    console.warn('有声书时间轴加载失败：', cause)
+    timeline.value = []
+  }
 }
 
 async function loadChapter(target, { startMs = 0, autoplay = false, navigate = true } = {}) {
@@ -235,12 +233,11 @@ async function navigateToChapter(target) {
 
 async function ensureSession() {
   if (sessionId.value || !manifest.value) return
-  const response = await props.request(`/api/audiobooks/${manifest.value.id}/sessions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source: 'candle', device_id: 'candle-reader' }),
-  })
-  if (response.err === 'ok') sessionId.value = response.session_id || ''
+  try {
+    sessionId.value = await props.repository.startSession({ manifest_id: manifest.value.id, source: 'candle', device_id: 'candle-reader' })
+  } catch (cause) {
+    console.warn('有声书收听会话创建失败：', cause)
+  }
 }
 
 async function startPlayback() {
@@ -459,20 +456,21 @@ async function reportProgress(force = false, completed = false) {
   const delta = playing.value && lastProgressClock ? Math.min(60000, Math.max(0, now - lastProgressClock)) : 0
   if (!force && delta < 9000) return
   lastProgressClock = now
-  const response = await props.request(`/api/audiobook-sessions/${sessionId.value}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  try {
+    const version = await props.repository.reportProgress({
+      session_id: sessionId.value,
       chapter_id: chapter.value.id,
       position_ms: positionMs.value,
       segment_id: activeSegment.value?.id || '',
       listened_delta_ms: delta,
       completed,
       version: progressVersion.value,
-    }),
-  })
-  if (response.err === 'ok') progressVersion.value = response.version || progressVersion.value
-  else if (response.err === 'progress.conflict') progressVersion.value = response.version || progressVersion.value
+    })
+    // 版本冲突时宿主同样返回最新版本号，下次上报以它为准。
+    if (version) progressVersion.value = version
+  } catch (cause) {
+    console.warn('有声书收听进度上报失败：', cause)
+  }
 }
 
 function readSavedState() {
@@ -510,7 +508,7 @@ onBeforeUnmount(() => {
   stopTimers()
   props.rendition?.off?.('rendered', onRenditionRendered)
   clearCurrentHighlight()
-  if (sessionId.value) void props.request(`/api/audiobook-sessions/${sessionId.value}`, { method: 'POST' })
+  if (sessionId.value) props.repository.endSession({ session_id: sessionId.value }).catch(cause => console.warn('有声书收听会话结束失败：', cause))
 })
 
 defineExpose({ loadManifest, playFromSelection, returnToNarration, suspendFollow })

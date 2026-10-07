@@ -12,7 +12,7 @@ candle-reader 是一个**可嵌入的 EPUB 阅读器组件**，不是独立应�
 - 宿主页面（目前是 talebook 的在线阅读页）`new Reader('#app', options)` 挂载，整页都交给阅读器。
 - 阅读器负责「怎么读、怎么交互」；数据「存在哪里、谁能看、怎么同步」全部属于宿主。
 
-一句话边界：**阅读器只认识回调，不认识任何后端。** 评论数据、读者身份、权限、同步都通过宿主注入的 `annotation_callbacks` 完成。阅读器代码里不得出现对评论服务（BRS）或账号接口的直接请求。
+一句话边界：**阅读器只认识回调，不认识任何后端。** 评论数据、读者身份、权限、同步通过宿主注入的 `annotation_callbacks` 完成，有声书清单和收听进度通过 `audiobook_callbacks` 完成。阅读器代码里不得出现对任何后端接口（评论服务 BRS、账号、有声书等）的直接请求；唯一由浏览器直接加载的是宿主给出的资源地址（电子书文件、有声书音频）。
 
 ## 2. 职责划分
 
@@ -32,7 +32,7 @@ candle-reader 是一个**可嵌入的 EPUB 阅读器组件**，不是独立应�
 | 删除 | 确认框、从界面移除 | 真删除及级联（见 5.4） |
 | 外部同步 | 不感知 | 公开记录同步到 BRS 等外部服务 |
 | 阅读设置、阅读位置、公开范围偏好 | 存在本机 `localStorage`（见 8） | — |
-| 听书 | 播放器界面、正文高亮跟随 | 提供有声书 HTTP 接口（见 6.3，当前唯一的例外） |
+| 听书 | 播放器界面、正文高亮跟随、本机记住收听位置 | 通过 `audiobook_callbacks` 提供章节清单、时间轴、收听进度（见 6.3） |
 
 判断一个新功能放在哪边时，问两个问题：
 
@@ -50,8 +50,7 @@ new Reader('#app', {
   book_id: 1,                     // 书的稳定标识；作为回调上下文和本机存储的隔离键
   themes_css: '/static/candle-reader/css/themes.css',  // 注入正文 iframe 的主题样式表
   annotation_callbacks: { ... },  // 评论回调，见 5；不传则使用本机 localStorage
-  audiobook_edition_id: null,     // 有声书，见 6.3
-  audiobook_manifest_url: '',
+  audiobook_callbacks: null,      // 有声书回调，见 6.3；不传则不显示「听书」
   debug: false,
 })
 ```
@@ -65,10 +64,10 @@ new Reader('#app', {
 | `book_id` | number / string | 回调上下文 `book_id`；缺省时本机存储改用 `book_url` 隔离 |
 | `themes_css` | string | 默认 `theme.css`；须包含 `src/themes.js` 中纯色主题的同名 class 和评论气泡样式 |
 | `annotation_callbacks` | object / null | 见 5 |
-| `audiobook_edition_id` / `audiobook_manifest_url` | number / string | 有一个即显示「听书」入口 |
+| `audiobook_callbacks` | object / null | 传了才显示「听书」入口 |
 | `debug` | boolean | 在顶栏显示 epub.js 事件名，并在点击处画点，仅调试用 |
 
-`server` 选项已废弃，传入会被忽略。
+`server`、`audiobook_edition_id`、`audiobook_manifest_url` 选项已废弃，传入会被忽略。
 
 ### 3.2 宿主页面的要求
 
@@ -92,6 +91,7 @@ CandleReader.vue          根组件，只透传 props
       └─ CommentItem.vue     单条记录（作者、时间、正文、修改/删除、赞/踩/回复）
 
 src/annotations.js        把 annotation_callbacks 包装成 annotation_repository；本机 localStorage 实现
+src/audiobook.js          把 audiobook_callbacks 包装成 audiobook_repository
 src/note-settings.js      旧设置迁移
 src/themes.js             主题数据
 demo/memory-host.js       回调契约的纯内存参照实现（演示页与 e2e 共用）
@@ -249,15 +249,26 @@ annotation_callbacks: {
 - epub.js 标记（class `candle-reader-annotation`）：同一 CFI 只画一个，记录可以有多条。
 - 行距、字距、`-webkit-touch-callout` 等通过 `rendition.themes.default()` 注入。
 
-### 6.3 有声书（例外）
+### 6.3 有声书回调（audiobook_callbacks）
 
-听书目前**直接请求宿主的 HTTP 接口**（带 cookie），而不是通过回调：
+```js
+audiobook_callbacks: {
+  manifest(ctx),        // → { manifest: { id, chapters: [Chapter] }, progress: { chapter_id, position_ms, version } | null }
+  timeline({ ...ctx, manifest_id, chapter }),            // → Segment[]，或 { segments }，或 { timeline: { segments } }
+  start_session({ ...ctx, manifest_id, source, device_id }),   // 可选 → { session_id }
+  report_progress({ ...ctx, session_id, chapter_id, position_ms, segment_id,
+                    listened_delta_ms, completed, version }),   // 可选 → { version }
+  end_session({ ...ctx, session_id }),                   // 可选
+}
+// Chapter = { id, number, title, source_key, duration_ms, audio_url, timeline_url? }
+// Segment = { id, index, start_ms, end_ms, text, locator: { type: 'epub-dom-text', href, dom_path, start_char, end_char } }
+```
 
-- `GET` 清单：`audiobook_manifest_url`，缺省为 `/api/audiobooks/<edition_id>/manifest`
-- `GET` 章节时间轴：清单里的 `timeline_url`，缺省为 `/api/audiobooks/<id>/chapters/<n>/timeline`
-- `POST /api/audiobooks/<id>/sessions`，`PATCH` / `POST /api/audiobook-sessions/<session_id>`：上报收听进度
-
-这是历史遗留的例外，接口属于宿主（talebook），不是评论服务。新增功能不要再走这种方式；若以后改造听书，按第 5 节的方式改成回调。
+- `manifest`、`timeline` 必须提供；三个会话回调可选，不提供时只在本机记住收听位置（`candle:audiobook:<book_id>`）。
+- `audio_url` 由 `<audio>` 直接加载，必须是浏览器能访问、支持 Range 请求的地址；`source_key` 是该章在电子书里的 href，用于翻到对应正文。
+- `chapter` 参数是清单里的整个章节对象，宿主可以用其中的 `timeline_url` 或 `number` 定位时间轴。
+- `report_progress` 播放中约每 10 秒调用一次，暂停和一章播完时立即调用（播完最后一章时 `completed` 为 `true`）；版本冲突时宿主同样返回最新 `version`，阅读器下次上报以它为准。
+- 清单失败时播放器显示错误信息（Error 的 `message`）；时间轴、会话失败不打断播放，只是不能高亮跟随或不上报进度。
 
 ## 7. 设置
 
@@ -295,7 +306,7 @@ annotation_callbacks: {
 
 1. 先判断归属（第 2 节）。属于宿主的数据，设计为新的回调，参数并入 `ctx`，返回值形状写进第 5 节。
 2. 在 `src/annotations.js` 的仓库包装里加方法：补上下文、校验返回形状；回调缺失时抛出明确错误，不要静默退化。
-3. 在 `demo/memory-host.js` 实现它，让演示页和 e2e 可用。
+3. 在 `demo/memory-host.js` 实现它，让演示页和 e2e 可用（有声书回调由 e2e 的 `reader-harness.html` 模拟宿主实现）。
 4. 组件只通过 `annotation_repository` 调用。
 5. 同步更新本文、`README.md`、`AGENTS.md`（若改变产品交互）。
 
@@ -305,7 +316,7 @@ annotation_callbacks: {
 
 **不要做的事**
 
-- 不要在阅读器里请求评论服务或账号接口，也不要新增 `$backend` 一类的全局请求工具。
+- 不要在阅读器里请求任何后端接口（评论、账号、有声书……），也不要新增 `$backend` 一类的全局请求工具；新的数据需求一律设计成回调。
 - 不要在阅读器里做权限判断来「保护」数据：界面上的隐藏只是体验，权限以宿主为准。
 - 不要为段落、章节、全书分别保存同一条评论的副本。
 - 不要另起一套选区监听替代 epub.js 的 `selected` 事件。

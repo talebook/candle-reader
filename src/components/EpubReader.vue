@@ -43,10 +43,9 @@
       v-if="has_audiobook"
       ref="audiobookPlayer"
       :visible="audiobook_open"
-      :edition-id="audiobook_edition_id"
-      :manifest-url="audiobook_manifest_url"
+      :repository="audiobook_repository"
+      :storage-id="initial_book_id || book_url"
       :rendition="rendition"
-      :request="audiobook_request"
       @close="audiobook_open = false"
     ></audiobook-player>
 
@@ -228,6 +227,7 @@ import BookToc from './BookToc.vue'
 import ReaderComments from './comments/ReaderComments.vue'
 import AudiobookPlayer from './AudiobookPlayer.vue'
 import { createAnnotationCallbacks, createClientId } from '@/annotations'
+import { createAudiobookRepository } from '@/audiobook'
 import { THEMES, getTheme } from '@/themes'
 
 const PUBLIC_PREFERENCE_KEY = 'candle-reader:comment-public'
@@ -249,8 +249,7 @@ export default {
     themes_css: { type: String, default: 'theme.css' },
     initial_book_id: { type: [Number, String], default: null },
     annotation_callbacks: { type: Object, default: null },
-    audiobook_edition_id: { type: [Number, String], default: null },
-    audiobook_manifest_url: { type: String, default: '' },
+    audiobook_callbacks: { type: Object, default: null },
   },
   computed: {
     // 「显示全部划线和评论」：正文里的划线标记与段尾评论气泡。
@@ -266,7 +265,7 @@ export default {
       return this.annotation_editor_record?.quote_text || '';
     },
     has_audiobook: function () {
-      return Boolean(this.audiobook_edition_id || this.audiobook_manifest_url);
+      return Boolean(this.audiobook_repository);
     },
     switch_theme_icon: function () {
       // 当前是白天主题则显示「切换到夜晚」的图标，反之亦然
@@ -348,16 +347,6 @@ export default {
     },
   },
   methods: {
-    audiobook_request: async function (url, options = {}) {
-      const response = await fetch(url, {
-        mode: 'cors',
-        credentials: 'include',
-        ...options,
-      });
-      const payload = await response.json();
-      if (!response.ok && !payload?.err) throw new Error(`有声书接口请求失败（${response.status}）`);
-      return payload;
-    },
     open_audiobook: function () {
       this.set_menu('hide');
       this.audiobook_open = true;
@@ -381,6 +370,15 @@ export default {
         });
       } catch (error) {
         console.error('Candle Reader annotations could not be initialized:', error);
+      }
+      try {
+        this.audiobook_repository = createAudiobookRepository({
+          callbacks: this.audiobook_callbacks,
+          bookId: this.initial_book_id,
+          bookUrl: this.book_url,
+        });
+      } catch (error) {
+        console.error('Candle Reader audiobook could not be initialized:', error);
       }
     },
     annotation_color: function (annotation) {
@@ -1719,6 +1717,7 @@ export default {
     load_failed: false, // 区分「加载较慢」与「加载失败」
     show_theme_dialog: false,
     audiobook_open: false,
+    audiobook_repository: null,
   })
 }
 </script>
