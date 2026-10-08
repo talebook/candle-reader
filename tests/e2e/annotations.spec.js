@@ -286,6 +286,85 @@ test('关闭「显示全部划线和评论」不影响评论入口', async ({ pa
   await expect.poll(() => readState(page, 'settings').then(settings => settings.show_comments)).toBe(true)
 })
 
+// 回归：气泡曾以 inline-block 跟在段尾，末行放不下时会折到新行、把后文往下推；
+// 划线标记按绘制时的文字位置画，切换开关后标记先画、气泡后到，标记就留在了原处。
+test('段尾气泡不参与正文排版，切换「显示全部划线和评论」后划线标记仍盖在原文上', async ({ page }) => {
+  await page.goto(`${HARNESS_URL}?missing_toc=1`)
+  await waitForReaderRendered(page)
+  await page.evaluate(async () => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    await reader.rendition.display('chapter.xhtml')
+  })
+  // 气泡与评论都按当前章节归属，等阅读器定位到本章
+  await page.waitForFunction(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.comment_chapter === '未收录的章节')
+  await page.evaluate(async () => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    const contents = reader.rendition.getContents().find(item => reader.book.spine.get(item.sectionIndex).href === 'chapter.xhtml')
+    const doc = contents.document
+    const paragraph = doc.getElementById('passage')
+    // 让末行只剩不到一个字的空位：气泡若参与排版就必然折行
+    const base = paragraph.textContent
+    const lines = () => { const range = doc.createRange(); range.selectNodeContents(paragraph); return range.getClientRects().length }
+    const initial = lines()
+    let extra = ''
+    while (extra.length < 200) {
+      paragraph.textContent = base + extra + '字'
+      if (lines() > initial && extra) { paragraph.textContent = base + extra; break }
+      extra += '字'
+    }
+    const other = doc.createElement('p')
+    other.id = 'other-passage'
+    other.textContent = '后一段的正文，划线标记必须始终盖在这几个字上。'
+    paragraph.after(other)
+    const full = doc.createRange()
+    full.selectNodeContents(paragraph.firstChild)
+    const highlight = doc.createRange()
+    highlight.setStart(other.firstChild, 2)
+    highlight.setEnd(other.firstChild, 12)
+    window.__highlightCfi = contents.cfiFromRange(highlight)
+    const chapter = reader.comment_chapter
+    await reader.annotation_repository.save({ client_id: 'bubble-note', annotation_type: 'note', is_private: false, chapter, cfi: reader.paragraph_for_range(full, contents).paragraph_cfi, range_cfi: contents.cfiFromRange(full), quote_text: paragraph.textContent, content: '本段公开评论', color: 'blue' })
+    await reader.annotation_repository.save({ client_id: 'bubble-highlight', annotation_type: 'highlight', is_private: true, chapter, cfi: window.__highlightCfi, range_cfi: window.__highlightCfi, quote_text: highlight.toString(), content: '', color: 'yellow' })
+  })
+  // 划线原文的位置，以及页面上划线标记的位置（主页面坐标）
+  const geometry = () => page.evaluate(() => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    const contents = reader.rendition.getContents().find(item => reader.book.spine.get(item.sectionIndex).href === 'chapter.xhtml')
+    const frame = contents.window.frameElement.getBoundingClientRect()
+    const text = contents.range(window.__highlightCfi).getClientRects()[0]
+    const paragraph = contents.document.getElementById('passage')
+    const words = contents.document.createRange()
+    words.selectNodeContents(paragraph.firstChild)
+    return {
+      bubble: !!paragraph.querySelector('.comment-icon'),
+      text: { x: Math.round(frame.left + text.left), y: Math.round(frame.top + text.top) },
+      marks: Array.from(document.querySelectorAll('.candle-reader-annotation rect')).map(rect => rect.getBoundingClientRect()).map(rect => ({ x: Math.round(rect.left), y: Math.round(rect.top) })),
+      lines: Array.from(words.getClientRects()).map(rect => [rect.left, rect.top, rect.right, rect.bottom].map(Math.round)),
+    }
+  })
+  const toggle = value => page.evaluate(value => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    reader.update_settings({ ...reader.settings, show_comments: value })
+  }, value)
+
+  await toggle(false)
+  await expect.poll(() => geometry().then(g => g.bubble)).toBe(false)
+  const withoutBubble = await geometry()
+  await toggle(true)
+  await expect.poll(() => geometry().then(g => g.bubble)).toBe(true)
+  await expect.poll(() => geometry().then(g => g.marks.length)).toBeGreaterThan(0)
+  // 标记与气泡都是异步到达，等两者都落定后再比较
+  await page.waitForTimeout(300)
+  const withBubble = await geometry()
+  await captureEvidence(page, 'tb199-bubble-highlight-402x874.png')
+  // 气泡插入前后，本段文字的行框完全不变，后一段也不移动
+  expect(withBubble.lines).toEqual(withoutBubble.lines)
+  expect(withBubble.text).toEqual(withoutBubble.text)
+  // 划线标记仍盖在划线原文上
+  const { text, marks } = withBubble
+  expect(marks.some(mark => Math.abs(mark.x - text.x) <= 1 && Math.abs(mark.y - text.y) <= 1), JSON.stringify(withBubble)).toBe(true)
+})
+
 test('同段不同选区共享整段评论范围，跨段评论归属最后一段', async ({ page }) => {
   await page.goto(`${HARNESS_URL}?missing_toc=1`)
   await waitForReaderRendered(page)

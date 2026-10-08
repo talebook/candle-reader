@@ -146,7 +146,8 @@ test.describe('图片皮肤 iframe 渲染回归', () => {
     await waitForReaderRendered(page)
     await page.evaluate(() => {
       const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
-      // 可能同时渲染了封面和下一章两个 iframe，取当前可见的那个；段落不在本页时挂到 body 末尾
+      // 可能同时渲染了封面和下一章两个 iframe，取当前可见的那个；本页没有段落（如封面）时在末尾补一段文字再挂。
+      // 气泡不参与排版、垂直居中在末行文字上，直接挂 body 会贴着封面图，取不到纯背景色做对比。
       const contents = r.rendition.getContents().find(c => {
         const rect = c.document.defaultView.frameElement.getBoundingClientRect()
         return rect.right > 0 && rect.left < window.innerWidth
@@ -156,7 +157,13 @@ test.describe('图片皮肤 iframe 渲染回归', () => {
         const rect = p.getBoundingClientRect()
         return p.textContent.trim() && rect.left >= 0 && rect.right <= doc.defaultView.innerWidth
       })
-      r.add_icon_into_paragraph(contents, p || doc.body, { paragraph_cfi: 'test', count: 7 }, null)
+      let target = p
+      if (!target) {
+        target = doc.createElement('p')
+        target.textContent = '气泡'
+        doc.body.appendChild(target)
+      }
+      r.add_icon_into_paragraph(contents, target, { paragraph_cfi: 'test', count: 7 }, null)
     })
     // 读取气泡所在 iframe 的主题 class、气泡样式，以及气泡在主页面中的位置
     const bubble = () => page.evaluate(() => {

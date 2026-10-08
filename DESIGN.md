@@ -241,12 +241,12 @@ annotation_callbacks: {
 ### 6.1 主题样式表（themes_css）
 
 - 纯色主题以 class 形式写在样式表里（`.white` / `.eyecare` / `.grey` / `.dark`），epub.js 把它注入正文 iframe 并给 body 加上对应 class。
-- 段尾气泡（`.comment-icon` / `.comment-count`）的样式也在这里。深色主题的 `.grey *` / `.dark *` 会给所有元素刷底色，新增插入正文的元素时注意显式设透明。
+- 段尾气泡（`.comment-anchor` / `.comment-icon` / `.comment-count`）的样式也在这里；锚点与气泡的定位规则（零宽锚点 + 绝对定位）是「气泡不改变排版」的前提，宿主自带样式表时需同步。深色主题的 `.grey *` / `.dark *` 会给所有元素刷底色，新增插入正文的元素时注意显式设透明。
 - 图片皮肤不靠样式表：阅读器把背景图铺在外层 `#main`，并向 iframe 注入透明背景、`color-scheme` 和文字色（`apply_custom_style`）。
 
 ### 6.2 阅读器向正文注入的内容
 
-- 段尾评论气泡 `div.comment-icon`；计算段落原文和 CFI 时会跳过它，不影响选区与引用。
+- 段尾评论气泡：段落末尾插入零宽锚点 `span.comment-anchor`，气泡 `div.comment-icon` 绝对定位挂在锚点上，**不参与正文排版**——插入、移除气泡都不会让文字折行或后文移动。epub.js 的划线标记按绘制那一刻的文字位置画、之后不随排版重算，气泡若占位就会让标记错位。末行写满时气泡伸进右侧页边距，超出页边距的部分向左收回（`fit_comment_icon`）。计算段落原文和 CFI 时会跳过气泡，不影响选区与引用。
 - epub.js 标记（class `candle-reader-annotation`）：同一 CFI 只画一个，记录可以有多条。
 - 行距、字距、`-webkit-touch-callout` 等通过 `rendition.themes.default()` 注入。
 

@@ -1458,19 +1458,37 @@ export default {
       commentCount.textContent = String(item.count);
       commentContainer.appendChild(commentCount);
 
-      // 将评论组件添加到段落末尾（内联跟随文字）
-      elem.appendChild(commentContainer);
+      // 气泡挂在段落末尾的零宽锚点上、绝对定位显示，不参与正文排版：
+      // 插入或移除气泡都不会让文字折行、后文下移，已经画好的划线标记（按绘制时的文字位置定位）也就不会错位。
+      const anchor = doc.createElement("span");
+      anchor.className = 'comment-anchor';
+      anchor.appendChild(commentContainer);
+      elem.appendChild(anchor);
+      this.fit_comment_icon(commentContainer, anchor, elem);
 
       commentContainer.addEventListener('click', (event) => {
         event.stopPropagation();
         this.open_comments('paragraph', { toc, contents, ...this.paragraph_location(elem, contents), paragraph_cfi: String(item.paragraph_cfi) });
       });
     },
+    // 末行写满时，跟在文字后面的气泡会伸出段落右边。允许伸进页边距（body 的右内边距），
+    // 再多就会被翻页窗口裁掉，此时把气泡向左收回页内（压住的通常是句末标点右半边的空白）。
+    fit_comment_icon: function (icon, anchor, paragraph) {
+      icon.style.left = '';
+      const doc = paragraph.ownerDocument;
+      const spot = anchor.getBoundingClientRect();
+      const box = icon.getBoundingClientRect();
+      // 分栏（翻页）模式下段落可能跨栏，取锚点所在的那一栏片段
+      const fragment = Array.from(paragraph.getClientRects()).find(r => spot.left >= r.left - 1 && spot.left <= r.right + 1 && spot.top >= r.top - 1 && spot.top <= r.bottom + 1) || paragraph.getBoundingClientRect();
+      const margin = parseFloat(doc.defaultView.getComputedStyle(doc.body).paddingRight) || 0;
+      const overflow = box.right - (fragment.right + Math.max(margin - 2, 0));
+      if (overflow > 0) icon.style.left = `${-overflow}px`;
+    },
     refresh_comment_icons: function () {
       this.comments_request++;
       if (!this.rendition) return;
       for (const contents of this.rendition.getContents()) {
-        contents.document.querySelectorAll('.comment-icon').forEach(icon => icon.remove());
+        contents.document.querySelectorAll('.comment-anchor, .comment-icon').forEach(icon => icon.remove());
       }
       if (this.comments_enabled && this.current_toc?.elem) {
         delete this.current_toc.load_time;
