@@ -58,8 +58,7 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
     expect(saved).toHaveLength(1)
     expect(saved[0]).toMatchObject({ cfi: selection.cfi, quote_text: selection.quote, chapter: label })
 
-    // Two distinct notes can refer to the same range. Keep both records while
-    // rendering only one removable epub.js mark for the shared CFI.
+    // 同一段落的两条评论都保留；正文不铺底色，段尾气泡计两条，开关后随之消失与恢复。
     await page.evaluate(() => {
       const key = 'candle-reader:annotations:v1:101'
       const records = JSON.parse(localStorage[key])
@@ -73,13 +72,15 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
       const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
       await r.rendition.display(cfi)
     }, selection.cfi)
-    await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
+    const bubbles = () => page.evaluate(() => Array.from(document.querySelectorAll('#reader iframe')).flatMap(f => Array.from(f.contentDocument.querySelectorAll('.comment-count')).map(item => item.textContent)))
+    await expect.poll(bubbles).toEqual(['2'])
+    await expect(page.locator('.candle-reader-annotation')).toHaveCount(0)
     await openPanel(page, 'settings')
     const row = page.locator('[data-setting=show_comments]')
     await row.getByRole('switch').uncheck()
-    await expect(page.locator('.candle-reader-annotation')).toHaveCount(0)
+    await expect.poll(bubbles).toEqual([])
     await row.getByRole('switch').check()
-    await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
+    await expect.poll(bubbles).toEqual(['2'])
     expect(await page.evaluate(() => JSON.parse(localStorage['candle-reader:annotations:v1:101']).length)).toBe(2)
     expect(errors).toEqual([])
   })

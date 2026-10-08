@@ -226,7 +226,9 @@ test('真实选区在工具栏和编辑弹窗中可见，写入失败不产生�
     reader.annotation_repository.save = window.__originalAnnotationSave
   })
   await page.getByRole('button', { name: '保存', exact: true }).click()
-  await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
+  // 文字评论不在正文铺底色，由段尾气泡表示。
+  await expect.poll(() => page.evaluate(() => Array.from(document.querySelectorAll('#reader iframe')).filter(f => f.contentDocument.querySelector('#passage .comment-icon')).length)).toBe(1)
+  await expect(page.locator('.candle-reader-annotation')).toHaveCount(0)
   await expect(page.locator('.selection-preview')).toHaveCount(0)
   await expect.poll(() => readState(page, 'annotation_editor_location')).toBe(null)
   await captureEvidence(page, 'tb199-saved-402x874.png')
@@ -367,6 +369,102 @@ test('段尾气泡不参与正文排版，切换「显示全部划线和评论�
   // 划线标记仍盖在划线原文上
   const { text, marks } = withBubble
   expect(marks.some(mark => Math.abs(mark.x - text.x) <= 1 && Math.abs(mark.y - text.y) <= 1), JSON.stringify(withBubble)).toBe(true)
+})
+
+// 段尾常有 <br> 或换行空白：气泡必须紧跟最后一个字、与末行同高，不能掉到下一行；
+// 末行写满时可以伸进右侧页边距。有评论的段落不铺底色，只用气泡表示。
+test('段尾气泡紧跟最后一个字不换行，评论段落不铺底色', async ({ page }) => {
+  await page.goto(`${HARNESS_URL}?missing_toc=1`)
+  await waitForReaderRendered(page)
+  await page.evaluate(async () => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    await reader.rendition.display('chapter.xhtml')
+  })
+  await page.waitForFunction(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.comment_chapter === '未收录的章节')
+  await page.evaluate(async () => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    const contents = reader.rendition.getContents().find(item => reader.book.spine.get(item.sectionIndex).href === 'chapter.xhtml')
+    const doc = contents.document
+    const passage = doc.getElementById('passage')
+    // 段内换行、段尾还跟着 <br> 和换行空白（与《西游记》诗句段落相同的结构）
+    passage.innerHTML = '春采百花为饮食，夏寻诸果作生涯。<br/>秋收芋栗延时节，冬觅黄精度岁华。<br/>\n'
+    // 末行恰好写满的段落
+    const full = doc.createElement('p')
+    full.id = 'full-passage'
+    passage.after(full)
+    const lines = () => { const range = doc.createRange(); range.selectNodeContents(full); return range.getClientRects().length }
+    // 逐字加长，直到再加一个字就会换行：此时末行恰好写满
+    let text = ''
+    let previous = 0
+    for (let i = 0; i < 400; i++) {
+      full.textContent = text + '字'
+      const count = lines()
+      if (previous && count > previous) { full.textContent = text; break }
+      previous = count
+      text += '字'
+    }
+    const chapter = reader.comment_chapter
+    for (const element of [passage, full]) {
+      const range = doc.createRange()
+      range.selectNodeContents(element)
+      const location = reader.paragraph_for_range(range, contents)
+      await reader.annotation_repository.save({ client_id: 'bubble-' + element.id, annotation_type: 'note', is_private: false, chapter, cfi: location.paragraph_cfi, range_cfi: location.paragraph_cfi, quote_text: location.paragraph_quote_text, content: '本段评论', color: 'blue' })
+    }
+    reader.on_comments_changed()
+  })
+  const geometry = () => page.evaluate(() => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    const contents = reader.rendition.getContents().find(item => reader.book.spine.get(item.sectionIndex).href === 'chapter.xhtml')
+    const doc = contents.document
+    const padding = parseFloat(contents.window.getComputedStyle(doc.body).paddingRight) || 0
+    return ['passage', 'full-passage'].map(id => {
+      const paragraph = doc.getElementById(id)
+      const icon = paragraph.querySelector('.comment-icon')
+      if (!icon) return null
+      // 最后一个可见字（跳过段尾 <br> 后的空白与气泡本身）
+      const walker = doc.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT)
+      let last = null
+      while (walker.nextNode()) if (!walker.currentNode.parentElement.closest('.comment-icon') && /\S/.test(walker.currentNode.textContent)) last = walker.currentNode
+      const end = last.textContent.search(/\s*$/)
+      const range = doc.createRange()
+      range.setStart(last, end - 1)
+      range.setEnd(last, end)
+      const rects = range.getClientRects()
+      const char = rects[rects.length - 1]
+      const box = icon.getBoundingClientRect()
+      const fragment = Array.from(paragraph.getClientRects()).find(r => char.left >= r.left - 1 && char.left <= r.right + 1) || paragraph.getBoundingClientRect()
+      return { char: [char.left, char.top, char.right, char.bottom], box: [box.left, box.top, box.right, box.bottom], limit: fragment.right + padding }
+    })
+  })
+  await expect.poll(() => geometry().then(items => items.every(Boolean))).toBe(true)
+  await page.waitForTimeout(300)
+  const items = await geometry()
+  await captureEvidence(page, 'tb199-bubble-line-end-402x874.png')
+  for (const { char, box, limit } of items) {
+    const middle = (box[1] + box[3]) / 2
+    // 与最后一个字同一行，紧跟其后
+    expect(middle, JSON.stringify(items)).toBeGreaterThanOrEqual(char[1])
+    expect(middle, JSON.stringify(items)).toBeLessThanOrEqual(char[3])
+    expect(box[0], JSON.stringify(items)).toBeGreaterThanOrEqual(char[2] - 1)
+    expect(box[0] - char[2], JSON.stringify(items)).toBeLessThanOrEqual(4)
+    // 不超出页边距
+    expect(box[2], JSON.stringify(items)).toBeLessThanOrEqual(limit + 1)
+  }
+  // 写满一行的段落：气泡伸进右侧页边距，而不是压住文字
+  expect(items[1].box[0]).toBeGreaterThanOrEqual(items[1].char[2] - 1)
+  // 文字评论不在正文铺底色
+  expect(await page.locator('.candle-reader-annotation').count()).toBe(0)
+  // 调大字号后正文重排，气泡仍跟着最后一个字
+  await page.evaluate(() => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    reader.update_settings({ ...reader.settings, font_size: reader.settings.font_size + 6 })
+  })
+  await page.waitForTimeout(500)
+  const resized = await geometry()
+  const { char, box } = resized[0]
+  expect((box[1] + box[3]) / 2, JSON.stringify(resized)).toBeGreaterThanOrEqual(char[1])
+  expect((box[1] + box[3]) / 2, JSON.stringify(resized)).toBeLessThanOrEqual(char[3])
+  expect(box[0], JSON.stringify(resized)).toBeGreaterThanOrEqual(char[2] - 1)
 })
 
 test('同段不同选区共享整段评论范围，跨段评论归属最后一段', async ({ page }) => {

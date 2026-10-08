@@ -386,7 +386,9 @@ export default {
       return colors[annotation?.color] || annotation?.color || (annotation?.annotation_type === 'note' ? '#4f8fb8' : '#e6b91e');
     },
     render_annotation: function (annotation) {
-      if (!this.comments_enabled || !this.rendition || !annotation?.cfi || annotation.annotation_type === 'book_comment') return;
+      if (!this.comments_enabled || !this.rendition || !annotation?.cfi) return;
+      // 正文底色只画划线；有评论的段落由段尾气泡表示，不再给整段铺底色。
+      if (annotation.annotation_type !== 'highlight') return;
       // epub.js indexes highlights by CFI, so multiple records at one range
       // must share one mark or remove(cfi) can leave an orphaned SVG behind.
       const identity = String(annotation.cfi);
@@ -814,6 +816,8 @@ export default {
       if (opt.font_size !== undefined) {
         this.rendition.themes.fontSize(opt.font_size + 'px');
       }
+      // 字号、行距、字距会让正文重新排版，气泡按最后一个字重新定位。
+      requestAnimationFrame(() => this.refit_comment_icons());
 
       this.save_settings();
     },
@@ -1334,6 +1338,7 @@ export default {
       console.log('Reader resized');
       // 横竖屏/窗口尺寸变化时，图片皮肤切换竖版/横版大图
       this.apply_skin_background();
+      requestAnimationFrame(() => this.refit_comment_icons());
       // 强制重新渲染当前页面，解决缩放后卡住问题
       try {
         if (this.rendition && this.book) {
@@ -1472,18 +1477,52 @@ export default {
         this.open_comments('paragraph', { toc, contents, ...this.paragraph_location(elem, contents), paragraph_cfi: String(item.paragraph_cfi) });
       });
     },
-    // 末行写满时，跟在文字后面的气泡会伸出段落右边。允许伸进页边距（body 的右内边距），
-    // 再多就会被翻页窗口裁掉，此时把气泡向左收回页内（压住的通常是句末标点右半边的空白）。
+    // 段落最后一个可见字的位置。段尾常有 <br> 或换行空白，锚点会落到下一行，气泡要以最后一个字为准。
+    last_char_rect: function (paragraph) {
+      const doc = paragraph.ownerDocument;
+      const walker = doc.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => node.parentElement.closest('.comment-anchor, script, style')
+          ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+      });
+      let last = null;
+      while (walker.nextNode()) {
+        if (/\S/.test(walker.currentNode.textContent)) last = walker.currentNode;
+      }
+      if (!last) return null;
+      const end = last.textContent.search(/\s*$/);
+      const range = doc.createRange();
+      range.setStart(last, end - 1);
+      range.setEnd(last, end);
+      const rects = Array.from(range.getClientRects()).filter(rect => rect.width || rect.height);
+      return rects[rects.length - 1] || null;
+    },
+    // 气泡紧跟段落最后一个字，与末行垂直居中，不另起一行。
+    // 末行写满时允许伸进页边距（body 的右内边距），再多就会被翻页窗口裁掉，此时把气泡向左收回页内。
     fit_comment_icon: function (icon, anchor, paragraph) {
       icon.style.left = '';
+      icon.style.top = '';
       const doc = paragraph.ownerDocument;
       const spot = anchor.getBoundingClientRect();
+      const char = this.last_char_rect(paragraph);
+      if (char) {
+        icon.style.left = `${char.right - spot.left}px`;
+        icon.style.top = `${char.top + char.height / 2 - spot.top}px`;
+      }
       const box = icon.getBoundingClientRect();
-      // 分栏（翻页）模式下段落可能跨栏，取锚点所在的那一栏片段
-      const fragment = Array.from(paragraph.getClientRects()).find(r => spot.left >= r.left - 1 && spot.left <= r.right + 1 && spot.top >= r.top - 1 && spot.top <= r.bottom + 1) || paragraph.getBoundingClientRect();
+      const mid = box.top + box.height / 2;
+      // 分栏（翻页）模式下段落可能跨栏，取气泡所在的那一栏片段
+      const fragment = Array.from(paragraph.getClientRects()).find(r => box.left >= r.left - 1 && box.left <= r.right + 1 && mid >= r.top - 1 && mid <= r.bottom + 1) || paragraph.getBoundingClientRect();
       const margin = parseFloat(doc.defaultView.getComputedStyle(doc.body).paddingRight) || 0;
       const overflow = box.right - (fragment.right + Math.max(margin - 2, 0));
-      if (overflow > 0) icon.style.left = `${-overflow}px`;
+      if (overflow > 0) icon.style.left = `${(parseFloat(icon.style.left) || 0) - overflow}px`;
+    },
+    refit_comment_icons: function () {
+      for (const contents of this.rendition?.getContents() || []) {
+        contents.document.querySelectorAll('.comment-anchor').forEach(anchor => {
+          const icon = anchor.querySelector('.comment-icon');
+          if (icon && anchor.parentElement) this.fit_comment_icon(icon, anchor, anchor.parentElement);
+        });
+      }
     },
     refresh_comment_icons: function () {
       this.comments_request++;
