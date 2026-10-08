@@ -475,8 +475,7 @@ export default {
       this.refresh_comment_icons();
     },
     read_public_preference: function () {
-      // 没有记录或读不到偏好时按私密处理：公开评论会同步到外部服务，不能默认外发。
-      try { return localStorage.getItem(PUBLIC_PREFERENCE_KEY) === 'true'; } catch (error) { return false; }
+      try { return localStorage.getItem(PUBLIC_PREFERENCE_KEY) !== 'false'; } catch (error) { return true; }
     },
     save_annotation: async function (annotationType, content, isPrivate) {
       if (!this.user) { this.request_login(); return null; }

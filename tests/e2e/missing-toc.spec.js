@@ -51,7 +51,6 @@ for (const [chapter, label] of [['chapter.xhtml', '未收录的章节'], ['bare.
     await expect(toolbar).toBeVisible()
     await toolbar.getByRole('button', { name: '写评论' }).click()
     await page.getByLabel('评论内容').fill('缺目录也能保存真实选区')
-    await page.getByRole('switch', { name: '公开这条评论' }).check()
     await page.getByRole('button', { name: '保存', exact: true }).click()
     await expect(page.getByText('评论已保存')).toBeVisible()
     const saved = await page.evaluate(() => JSON.parse(localStorage['candle-reader:annotations:v1:101']))

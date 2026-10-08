@@ -153,11 +153,8 @@ test('宿主回调负责读取和写入，且收到书籍上下文', async ({ pa
   await page.locator('#comments-toolbar').getByRole('button', { name: '写评论' }).click()
   await expect(page.getByRole('dialog', { name: '写评论' })).toBeVisible()
   const publicSwitch = page.getByRole('switch', { name: '公开这条评论' })
-  // 首次写评论默认私密：公开会同步到外部服务，须由读者主动打开。
-  await expect(publicSwitch).not.toBeChecked()
+  await expect(publicSwitch).toBeChecked()
   await expect(page.getByText('评论关联整个段落。')).toBeVisible()
-  await expect(page.getByText('只有你能看到这条评论。')).toBeVisible()
-  await publicSwitch.check()
   await expect(page.getByText('其他读者可以在对应评论范围看到这条评论。')).toBeVisible()
   await publicSwitch.uncheck()
   await expect(page.getByText('只有你能看到这条评论。')).toBeVisible()
@@ -210,7 +207,6 @@ test('真实选区在工具栏和编辑弹窗中可见，写入失败不产生�
   await expect(page.getByText('仅保存在当前浏览器，公开范围暂不生效。')).toBeVisible()
   await expect(page.getByText('其他读者可以在对应评论范围看到这条评论。')).toBeHidden()
   await page.getByLabel('评论内容').fill('保存失败时保持选区')
-  await page.getByRole('switch', { name: '公开这条评论' }).check()
   await page.evaluate(() => {
     const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
     window.__originalAnnotationSave = reader.annotation_repository.save
@@ -509,7 +505,6 @@ test('同段不同选区共享整段评论范围，跨段评论归属最后一�
   await toolbar.getByRole('button', { name: '写评论' }).click()
   await expect(page.locator('.annotation-editor-quote')).toHaveText(first.fullQuote)
   await page.getByLabel('评论内容').fill('这个段落的公开评论')
-  await page.getByRole('switch', { name: '公开这条评论' }).check()
   await page.getByRole('button', { name: '保存', exact: true }).click()
   await expect(page.getByRole('dialog', { name: '写评论' })).toBeHidden()
   await expect.poll(() => readState(page, 'annotation_editor_location')).toBe(null)

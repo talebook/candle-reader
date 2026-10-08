@@ -244,9 +244,7 @@ test('写整书评论：只出现在全书评论，公开范围偏好被记住',
   await nav(page).click()
   await drawer(page).getByRole('button', { name: '写评论' }).click()
   const editor = page.getByRole('dialog', { name: '写整书评论' })
-  // 首次写评论默认私密，需读者主动公开。
-  await expect(editor.getByRole('switch', { name: '公开这条评论' })).not.toBeChecked()
-  await editor.getByRole('switch', { name: '公开这条评论' }).check()
+  await expect(editor.getByRole('switch', { name: '公开这条评论' })).toBeChecked()
   await editor.getByRole('button', { name: '保存', exact: true }).click()
   await expect(editor.getByText('请填写评论内容')).toBeVisible()
   await editor.getByLabel('评论内容').fill('整本书都很好看')

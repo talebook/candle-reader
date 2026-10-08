@@ -291,7 +291,7 @@ audiobook_callbacks: {
 |---|---|
 | `readerSettings` | 第 7 节的设置 |
 | `lastReadPosition_<book_url>` | 上次阅读位置（CFI）；有值时优先于 `display_url` |
-| `candle-reader:comment-public` | 新建评论的公开范围偏好；没有记录或读不到时按私密处理，只在新建保存成功后更新，编辑已有记录、划线不改它 |
+| `candle-reader:comment-public` | 新建评论的公开范围偏好；只在新建保存成功后更新，编辑已有记录、划线不改它 |
 | `candle-reader:annotations:v1:<book>` | 未注入回调时的本机评论数据 |
 
 所有读写都要 `try/catch`：无痕模式等情况下 `localStorage` 可能不可用，不能因此挡住阅读。
