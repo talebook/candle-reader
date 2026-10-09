@@ -1401,14 +1401,13 @@ export default {
           this.current_toc_title = toc.label;
           this.current_toc = toc;
 
-          // 一页可能从上一章末尾跨进下一章：页尾所在章节的段尾气泡和划线也要显示。
-          const visible = [{ contents, toc }];
+          // 一屏可能跨好几章（短章、宽屏、连续滚动）：从页首到页尾之间出现的每一章，段尾气泡和划线都要显示。
           const endContents = loc.end && contents_list.find(c => String(loc.end).includes(c.cfiBase));
           const endToc = endContents && this.find_toc(new ePub.CFI(loc.end), endContents);
-          if (endToc && endToc.label !== toc.label) visible.push({ contents: endContents, toc: endToc });
-          this.visible_tocs = markRaw(visible);
+          this.visible_tocs = markRaw(this.tocs_between({ contents, toc }, endToc && { contents: endContents, toc: endToc }, contents_list));
 
           // 只有当可见章节实际变化时，才重新加载评论，避免不必要的 API 请求
+          const visible = this.visible_tocs;
           const labels = visible.map(item => item.toc.label).join('\n');
           if (this.last_toc_label !== labels) {
             visible.forEach(item => this.load_comments_summary(item.contents, item.toc));
@@ -1534,7 +1533,26 @@ export default {
         });
       }
     },
-    // 当前页上出现的章节（页首一章，跨章时再加页尾一章）。
+    // 目录中从页首章节到页尾章节（含两端）的每一章，配上它所在的正文文档；没有渲染出来的跳过。
+    tocs_between: function (start, end, contents_list) {
+      const visible = [start];
+      if (!end || end.toc === start.toc) return visible;
+      const flat = [];
+      const collect = items => items.forEach(item => { flat.push(item); if (item.subitems?.length) collect(item.subitems); });
+      collect(this.toc_items || []);
+      const from = flat.indexOf(start.toc);
+      const to = flat.indexOf(end.toc);
+      if (from >= 0 && to > from) {
+        for (const toc of flat.slice(from + 1, to)) {
+          const href = String(toc.href || '').split('#')[0];
+          const contents = contents_list.find(c => this.book.spine.get(c.sectionIndex)?.href === href);
+          if (contents) visible.push({ contents, toc });
+        }
+      }
+      visible.push(end);
+      return visible;
+    },
+    // 当前页上出现的章节。
     visible_chapters: function () {
       const tocs = this.visible_tocs.length ? this.visible_tocs.map(item => item.toc) : [this.current_toc];
       const chapters = tocs.map(toc => String(toc?.label || '').trim()).filter(Boolean);
@@ -1548,10 +1566,13 @@ export default {
       }
       if (!this.comments_enabled) return;
       const visible = this.visible_tocs.length ? this.visible_tocs : [{ toc: this.current_toc }];
-      for (const { toc } of visible) {
-        if (!toc?.elem) continue;
+      const rendered = this.rendition.getContents();
+      for (const item of visible) {
+        const toc = item.toc;
+        if (!toc) continue;
         delete toc.load_time;
-        const contents = this.rendition.getContents().find(c => c.document === toc.elem.ownerDocument);
+        const contents = rendered.includes(item.contents) ? item.contents
+          : toc.elem && rendered.find(c => c.document === toc.elem.ownerDocument);
         if (contents) this.load_comments_summary(contents, toc);
       }
     },
@@ -1780,7 +1801,7 @@ export default {
     current_toc: null, // 当前阅读的章节对象
     current_toc_progress: "",
     last_toc_label: "", // 上一次的可见章节标题，用于检测章节变化
-    visible_tocs: [], // 当前页上出现的章节及其正文文档
+    visible_tocs: [], // 当前屏上出现的章节及其正文文档
 
     toolbar_left: -999,
     toolbar_top: 0,

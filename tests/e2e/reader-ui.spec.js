@@ -2,7 +2,7 @@
 // 这些 UI 是静态模板，不依赖 epub 渲染，因此用例稳定。
 const { test, expect } = require('@playwright/test')
 const { setupApiMock } = require('./helpers/mock-api')
-const { gotoReader, readState, waitForReaderRendered } = require('./helpers/reader')
+const { HARNESS_URL, gotoReader, openPanel, readState, waitForReaderRendered } = require('./helpers/reader')
 
 test.beforeEach(async ({ page }) => {
   await setupApiMock(page) // 默认游客态
@@ -118,4 +118,17 @@ test('正文加载超过 60 秒提示「加载较慢」但不中断，加载完�
   release()
   await waitForReaderRendered(page)
   await expect(dialog).toBeHidden()
+})
+
+test('一个正文文件里有多章时，目录只高亮当前这一章', async ({ page }) => {
+  // 西游记前十一回在同一个正文文件里，目录项只靠锚点区分。
+  await page.goto(HARNESS_URL + '?book=xi-you-ji.epub&at=' + encodeURIComponent('5039418960600707614_23962-0-0.txt.xhtml#chapter-003'))
+  await waitForReaderRendered(page)
+  await page.waitForFunction(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.current_toc)
+  await openPanel(page, 'toc')
+  const current = page.locator('.current-chapter')
+  await expect(current).toHaveCount(1)
+  // 当前章节以页首为准（这一页从第二回末尾开始），与顶部和评论用的章节一致。
+  const label = await page.evaluate(() => document.querySelector('#app').__vue_app__._instance.subTree.component.proxy.current_toc.label)
+  await expect(current).toContainText(label.trim().slice(0, 6))
 })

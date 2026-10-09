@@ -436,3 +436,19 @@ test('一页横跨两章时，页尾那一章的段落评论也显示气泡，�
   expect(query.scope).toBe('paragraph')
   expect(query.chapter).toContain('第三回')
 })
+
+test('一屏跨好几章时，页首到页尾之间的每一章都读取气泡和划线', async ({ page }) => {
+  // 西游记前十一回在同一个正文文件里。模拟一屏从第一回跨到第五回（短章、宽屏或连续滚动时会出现）。
+  await gotoHostReader(page, '&book=xi-you-ji.epub&at=' + encodeURIComponent('5039418960600707614_23962-0-0.txt.xhtml#chapter-003'))
+  const chapters = await page.evaluate(() => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    const flat = []
+    const collect = items => items.forEach(item => { flat.push(item); if (item.subitems?.length) collect(item.subitems) })
+    collect(r.toc_items)
+    const pick = prefix => flat.find(item => item.label.trim().startsWith(prefix))
+    const contents = r.rendition.getContents().find(c => r.book.spine.get(c.sectionIndex).href === pick('第一回').href.split('#')[0])
+    return r.tocs_between({ contents, toc: pick('第一回') }, { contents, toc: pick('第五回') }, r.rendition.getContents())
+      .map(item => item.toc.label.trim().slice(0, 3))
+  })
+  expect(chapters).toEqual(['第一回', '第二回', '第三回', '第四回', '第五回'])
+})
