@@ -49,16 +49,16 @@
       @close="audiobook_open = false"
     ></audiobook-player>
 
-    <v-bottom-sheet class="fixed mb-14 settings-bottom-sheet reader-side-right" max-height="90%" v-model="menu.panels.settings" @update:model-value="on_panel_model_update('settings', $event)" @after-leave="on_panel_after_leave('settings')" contained z-index="234">
+    <v-bottom-sheet class="fixed mb-14 settings-bottom-sheet reader-side-right" :retain-focus="!is_wide_screen" max-height="90%" v-model="menu.panels.settings" @update:model-value="on_panel_model_update('settings', $event)" @after-leave="on_panel_after_leave('settings')" contained z-index="234">
       <settings :settings="settings" @update="update_settings" @open-themes="open_theme_dialog"></settings>
     </v-bottom-sheet>
 
-    <v-bottom-sheet class="fixed mb-14 reader-side-left" max-height="90%" v-model="menu.panels.toc" @update:model-value="on_panel_model_update('toc', $event)" @after-leave="on_panel_after_leave('toc')" contained close-on-content-click  z-index="234">
+    <v-bottom-sheet class="fixed mb-14 reader-side-left" :retain-focus="!is_wide_screen" max-height="90%" v-model="menu.panels.toc" @update:model-value="on_panel_model_update('toc', $event)" @after-leave="on_panel_after_leave('toc')" contained close-on-content-click  z-index="234">
       <book-toc ref="bookTocComponent" :meta="book_meta" :toc_items="toc_items" :current-chapter="current_toc" @click:select="on_click_toc"></book-toc>
     </v-bottom-sheet>
 
     <!-- 评论抽屉（移动端 90% 高的底部抽屉，桌面端右侧侧边栏）。eager：选区和段尾气泡需要在首次打开前就能调用它。 -->
-    <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet reader-side-right" v-model="menu.panels.annotations" @update:model-value="on_panel_model_update('annotations', $event)" @after-leave="on_panel_after_leave('annotations')" contained eager z-index="234"
+    <v-bottom-sheet class="fixed mb-14 annotation-bottom-sheet reader-side-right" :retain-focus="!is_wide_screen" v-model="menu.panels.annotations" @update:model-value="on_panel_model_update('annotations', $event)" @after-leave="on_panel_after_leave('annotations')" contained eager z-index="234"
       aria-label="评论">
       <div class="annotation-sheet-body">
         <reader-comments ref="comments" :repository="annotation_repository" :user="user" :chapter="comment_chapter" :active="menu.panels.annotations"
@@ -66,6 +66,11 @@
           @feedback="show_annotation_feedback" @close="set_menu('hide')"></reader-comments>
       </div>
     </v-bottom-sheet>
+
+    <!-- 宽屏侧边栏（目录、评论、设置）的宽度调整条。放在面板浮层外面：浮层内容区会裁掉越过边框的部分。 -->
+    <panel-resizer v-if="side_panel" :key="side_panel.name" :side="side_panel.side" :label="`调整${side_panel.label}宽度`"
+      :width="panel_width(side_panel.name)" :min="PANEL_MIN_WIDTH" :max="panel_max_width"
+      @update:width="set_panel_width(side_panel.name, $event)" @commit="save_panel_widths" @reset="reset_panel_width(side_panel.name)"></panel-resizer>
 
     <v-bottom-sheet class="fixed mb-14" max-height="90%" v-model="menu.panels.ai" @update:model-value="on_panel_model_update('ai', $event)" @after-leave="on_panel_after_leave('ai')" contained z-index="234">
       <v-card title="开发中"></v-card>
@@ -227,17 +232,27 @@ import Settings from './Settings.vue'
 import BookToc from './BookToc.vue'
 import ReaderComments from './comments/ReaderComments.vue'
 import AudiobookPlayer from './AudiobookPlayer.vue'
+import PanelResizer from './PanelResizer.vue'
 import { createAnnotationCallbacks, createClientId } from '@/annotations'
 import { createAudiobookRepository } from '@/audiobook'
 import { THEMES, getTheme } from '@/themes'
 
 const PUBLIC_PREFERENCE_KEY = 'candle-reader:comment-public'
+const PANEL_WIDTHS_KEY = 'candle-reader:panel-widths'
+const PANEL_MIN_WIDTH = 260
+// 宽屏下以侧边栏显示的面板：所在一侧、默认宽度和界面上的称呼。
+const SIDE_PANELS = {
+  toc: { side: 'left', width: 300, label: '目录' },
+  annotations: { side: 'right', width: 420, label: '评论' },
+  settings: { side: 'right', width: 380, label: '设置' },
+}
 // 网速慢时（如 3Mbps 下首次打开要下载十几 MB）正文可能要半分钟以上才出来，超过这个时间才提示「加载较慢」。
 const LOAD_TIMEOUT_MS = 60000
 
 export default {
   name: 'EpubReader',
   components: {
+    PanelResizer,
     Settings,
     BookToc,
     ReaderComments,
@@ -255,6 +270,15 @@ export default {
   computed: {
     // 「显示全部划线和评论」：正文里的划线标记与段尾评论气泡。
     comments_enabled: function () { return this.settings.show_comments; },
+    // 宽屏下正在显示的侧边栏；手机上的底部抽屉没有宽度可调。
+    side_panel: function () {
+      const panel = SIDE_PANELS[this.menu.current_panel];
+      return this.is_wide_screen && panel && this.menu.panels[this.menu.current_panel] ? { name: this.menu.current_panel, ...panel } : null;
+    },
+    // 侧边栏最宽不超过 720px，并给正文至少留出 360px。
+    panel_max_width: function () {
+      return Math.max(PANEL_MIN_WIDTH, Math.min(720, this.window_width - 360));
+    },
     comment_chapter: function () { return String(this.current_toc?.label || this.current_toc_title || '').trim(); },
     annotation_editor_title: function () {
       if (this.annotation_editor_record) return '编辑评论';
@@ -1552,6 +1576,29 @@ export default {
       visible.push(end);
       return visible;
     },
+    panel_width: function (name) {
+      return Math.min(this.panel_max_width, Math.max(PANEL_MIN_WIDTH, this.panel_widths[name] || SIDE_PANELS[name].width));
+    },
+    set_panel_width: function (name, width) {
+      this.panel_widths = { ...this.panel_widths, [name]: width };
+    },
+    reset_panel_width: function (name) {
+      this.set_panel_width(name, SIDE_PANELS[name].width);
+      this.save_panel_widths();
+    },
+    save_panel_widths: function () {
+      try { localStorage.setItem(PANEL_WIDTHS_KEY, JSON.stringify(this.panel_widths)); } catch (error) { /* noop */ }
+    },
+    // 侧边栏宽度以 CSS 变量交给样式表（面板浮层不在本组件的 DOM 树里）。
+    apply_panel_widths: function () {
+      for (const name of Object.keys(SIDE_PANELS)) {
+        document.documentElement.style.setProperty(`--candle-panel-${name}-width`, `${this.panel_width(name)}px`);
+      }
+    },
+    on_window_resize: function () {
+      this.window_width = window.innerWidth;
+      this.is_wide_screen = window.innerWidth >= 850;
+    },
     // 当前页上出现的章节。
     visible_chapters: function () {
       const tocs = this.visible_tocs.length ? this.visible_tocs.map(item => item.toc) : [this.current_toc];
@@ -1648,7 +1695,18 @@ export default {
       this.showTimeoutDialog = true;
     },
   },
+  watch: {
+    panel_widths: function () { this.apply_panel_widths(); },
+    panel_max_width: function () { this.apply_panel_widths(); },
+  },
+  beforeUnmount: function () {
+    window.removeEventListener('resize', this.on_window_resize);
+  },
   mounted: function () {
+    try { this.panel_widths = JSON.parse(localStorage.getItem(PANEL_WIDTHS_KEY) || '{}') || {}; } catch (error) { this.panel_widths = {}; }
+    this.apply_panel_widths();
+    window.addEventListener('resize', this.on_window_resize);
+
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.type = 'text/css';
@@ -1802,6 +1860,10 @@ export default {
     current_toc_progress: "",
     last_toc_label: "", // 上一次的可见章节标题，用于检测章节变化
     visible_tocs: [], // 当前屏上出现的章节及其正文文档
+    panel_widths: {}, // 宽屏侧边栏的宽度（读者拖动调整，按面板记住）
+    window_width: typeof window === 'undefined' ? 1024 : window.innerWidth,
+    is_wide_screen: typeof window !== 'undefined' && window.innerWidth >= 850,
+    PANEL_MIN_WIDTH,
 
     toolbar_left: -999,
     toolbar_top: 0,
@@ -2071,9 +2133,9 @@ html, body {
     border-radius: 0;
     background: rgb(var(--v-theme-surface));
   }
-  .v-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { left: auto; right: 0; width: 420px; border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
-  .v-bottom-sheet.reader-side-left > .v-bottom-sheet__content.v-overlay__content { left: 0; right: auto; width: 300px; border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
-  .v-bottom-sheet.settings-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { width: 380px; }
+  .v-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { left: auto; right: 0; width: var(--candle-panel-annotations-width, 420px); border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
+  .v-bottom-sheet.reader-side-left > .v-bottom-sheet__content.v-overlay__content { left: 0; right: auto; width: var(--candle-panel-toc-width, 300px); border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
+  .v-bottom-sheet.settings-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { width: var(--candle-panel-settings-width, 380px); }
 }
 
 /* 小屏会同时显示目录、主题、评论等入口；覆盖 Vuetify 的按钮最小宽度，避免两端入口被裁掉。 */

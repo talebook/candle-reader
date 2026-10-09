@@ -112,7 +112,7 @@ demo/memory-host.js       回调契约的纯内存参照实现（演示页与 e2
 ### 4.2 面板与页面
 
 - **底部面板**：`toc` / `settings` / `annotations`（评论抽屉）/ `ai`，一次只开一个，统一由 `EpubReader.set_menu(name)` 切换，`set_menu('hide')` 全部收起。打开评论请用 `open_comments(scope, paragraph)`，不要直接 `set_menu('annotations')`，否则列表不会按范围加载。
-- **布局**：移动端为底部抽屉（评论抽屉占底部菜单上方区域的 90%）；宽度 ≥ 850px 时目录是左侧侧边栏，评论和设置是右侧侧边栏。都覆盖在正文上，不压缩正文，底部菜单保持可点。
+- **布局**：移动端为底部抽屉（评论抽屉占底部菜单上方区域的 90%）；宽度 ≥ 850px 时目录是左侧侧边栏，评论和设置是右侧侧边栏。都覆盖在正文上，不压缩正文，底部菜单保持可点。侧边栏内侧边缘有胶囊形分隔条（`PanelResizer`，role=separator），可拖动或用方向键 / Home / End 调整宽度，双击恢复默认；宽度按面板分别记在 localStorage（`candle-reader:panel-widths`），范围 260px 到 min(720px, 窗口宽度 − 360px)。分隔条放在面板浮层外面（浮层内容区会裁掉越过边框的部分），宽屏时侧边栏不锁定焦点，键盘可以移到分隔条上。
 - **独立页面**：完整评论页、评论详情页是全屏 `v-dialog`（class `rc-standalone`，z-index 2600，盖住顶栏和底部菜单）。每进入一层就 `history.pushState({ candle_comments: 层数 })`，返回按钮、Esc、浏览器后退都走 `history.back()`，由 `popstate` 统一退出到对应层数。离开评论抽屉时 `close_pages()` 会一并退回历史记录。
 - **层级**：编辑框、删除确认在独立页面之上（class `rc-above-standalone`，z-index 2700）；Vuetify 给嵌套浮层的层级只比父级高一档，所以这两个值用 class 显式抬高，新增浮层时沿用。
 - **焦点**：面板最终关闭时焦点回到打开它的入口（`panel_trigger`）；从详情页返回时焦点回到列表里那条评论的「回复」按钮。
