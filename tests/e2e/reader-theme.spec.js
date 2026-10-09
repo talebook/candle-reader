@@ -211,9 +211,18 @@ test.describe('图片皮肤 iframe 渲染回归', () => {
             if (Math.max(...[0, 1, 2].map(c => Math.abs(data[i + c] - bg[c]))) > 60) count++
           }
         }
-        return count
+        // 气泡下方的尖角朝左：底部一条带里，左半边的轮廓像素多于右半边
+        const tail = [0, 0]
+        for (let y = Math.floor(img.height * 0.85); y < img.height; y++) {
+          for (let x = 0; x < img.width; x++) {
+            const i = (y * img.width + x) * 4
+            if (Math.max(...[0, 1, 2].map(c => Math.abs(data[i + c] - bg[c]))) > 60) tail[x < img.width / 2 ? 0 : 1]++
+          }
+        }
+        return { count, tail }
       }, png)
-      expect(outline, `${theme} 主题下气泡顶部轮廓不可见`).toBeGreaterThan(0)
+      expect(outline.count, `${theme} 主题下气泡顶部轮廓不可见`).toBeGreaterThan(0)
+      expect(outline.tail[0], `${theme} 主题下气泡尖角应朝左`).toBeGreaterThan(outline.tail[1])
     }
   })
 })
