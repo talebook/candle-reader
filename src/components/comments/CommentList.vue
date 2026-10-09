@@ -71,5 +71,5 @@ export default {
 .comment-state p { margin: 8px 0; }
 .comment-state-hint { font-size: 12px; }
 .comment-load-status { padding: 18px 0; text-align: center; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.7); }
-.comment-retry { color: rgb(var(--v-theme-primary)); padding: 4px 8px; }
+.comment-retry { color: rgb(var(--v-theme-on-surface)); color: color-mix(in srgb, rgb(var(--v-theme-primary)) 60%, rgb(var(--v-theme-on-surface))); padding: 4px 8px; }
 </style>

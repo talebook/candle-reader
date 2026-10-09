@@ -81,10 +81,10 @@ export default {
 .comment-tag { padding: 0 6px; border-radius: 4px; font-size: 11px; color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.12); }
 .comment-content { margin: 6px 0 0; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; color: rgb(var(--v-theme-on-surface)); }
 .comment-reply-to { color: rgba(var(--v-theme-on-surface), 0.7); }
-.comment-inline { margin-left: 8px; font-size: 13px; color: rgb(var(--v-theme-primary)); white-space: nowrap; }
+.comment-inline { margin-left: 8px; font-size: 13px; color: rgb(var(--v-theme-on-surface)); color: color-mix(in srgb, rgb(var(--v-theme-primary)) 60%, rgb(var(--v-theme-on-surface))); white-space: nowrap; }
 .comment-actions { display: flex; align-items: center; gap: 4px; margin: 4px 0 0 -8px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.7); }
 .comment-actions button { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px; border-radius: 6px; }
-.comment-actions button[aria-pressed=true] { color: rgb(var(--v-theme-primary)); font-weight: 600; }
+.comment-actions button[aria-pressed=true] { color: rgb(var(--v-theme-on-surface)); color: color-mix(in srgb, rgb(var(--v-theme-primary)) 60%, rgb(var(--v-theme-on-surface))); font-weight: 600; }
 .comment-item button:focus-visible { outline: 2px solid rgb(var(--v-theme-primary)); outline-offset: 1px; }
 @media (hover: hover) { .comment-actions button:hover, .comment-inline:hover { background: rgba(var(--v-theme-on-surface), 0.08); } }
 </style>

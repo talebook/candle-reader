@@ -405,14 +405,14 @@ export default {
 .rc-handle { width: 36px; height: 4px; margin: 10px auto 0; border-radius: 4px; background: rgba(var(--v-theme-on-surface), 0.24); }
 .rc-head { display: flex; align-items: center; justify-content: space-between; margin: 4px 20px 0; padding: 8px 0; border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); font-size: 14px; }
 .rc-head strong { font-weight: 500; }
-.rc-more { display: inline-flex; align-items: center; min-height: 36px; padding-left: 8px; border-radius: 6px; font-size: 13px; color: rgb(var(--v-theme-primary)); }
+.rc-more { display: inline-flex; align-items: center; min-height: 36px; padding-left: 8px; border-radius: 6px; font-size: 13px; color: rgb(var(--v-theme-on-surface)); color: color-mix(in srgb, rgb(var(--v-theme-primary)) 60%, rgb(var(--v-theme-on-surface))); }
 .rc-footer { flex: 0 0 auto; padding: 12px 20px; padding-bottom: max(12px, env(safe-area-inset-bottom)); border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); background: rgb(var(--v-theme-surface)); }
 .rc-page { display: flex; flex-direction: column; height: 100%; background: rgb(var(--v-theme-surface)); color: rgb(var(--v-theme-on-surface)); padding-top: env(safe-area-inset-top); }
 .rc-tabs, .rc-detail-nav { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
 .rc-detail-nav { min-height: 48px; font-size: 15px; }
 .rc-back { flex: 0 0 40px; display: grid; place-items: center; width: 40px; height: 44px; border-radius: 8px; }
 .rc-tab { flex: 1 1 0; min-height: 48px; border-bottom: 2px solid transparent; font-size: 14px; white-space: nowrap; color: rgba(var(--v-theme-on-surface), 0.7); }
-.rc-tab--active { color: rgb(var(--v-theme-primary)); border-color: rgb(var(--v-theme-primary)); font-weight: 600; }
+.rc-tab--active { color: rgb(var(--v-theme-on-surface)); color: color-mix(in srgb, rgb(var(--v-theme-primary)) 60%, rgb(var(--v-theme-on-surface))); border-color: rgb(var(--v-theme-primary)); font-weight: 600; }
 .rc-page-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; width: 100%; max-width: 820px; margin: 0 auto; }
 .rc-detail-body { display: block; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px; }
 .rc-login { padding: 48px 20px; text-align: center; font-size: 14px; color: rgba(var(--v-theme-on-surface), 0.7); }
@@ -423,7 +423,7 @@ export default {
 .rc-thread-children { margin: 0 0 8px 20px; padding-left: 12px; border-left: 2px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
 .rc-thread-children .comment-item { padding: 10px 0; }
 .rc-thread-children .comment-item + .comment-item { border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
-.rc-text-button { padding: 4px 8px; color: rgb(var(--v-theme-primary)); }
+.rc-text-button { padding: 4px 8px; color: rgb(var(--v-theme-on-surface)); color: color-mix(in srgb, rgb(var(--v-theme-primary)) 60%, rgb(var(--v-theme-on-surface))); }
 .rc-reply-box { display: flex; align-items: flex-end; gap: 8px; width: 100%; max-width: 780px; margin: 0 auto; }
 .rc-reply-input { flex: 1 1 auto; min-width: 0; }
 .rc-more:focus-visible, .rc-back:focus-visible, .rc-tab:focus-visible, .rc-text-button:focus-visible { outline: 2px solid rgb(var(--v-theme-primary)); outline-offset: -2px; }

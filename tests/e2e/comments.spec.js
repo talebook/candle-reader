@@ -338,3 +338,34 @@ test('宿主要求登录才能看评论时，游客看到登录提示，登录�
   await drawer(page).getByRole('button', { name: '去登录' }).click()
   await expect(drawer(page).locator('.comment-item')).toHaveCount(3)
 })
+
+test('评论区强调色文字在各主题下与底色对比度不低于 4.5:1', async ({ page }) => {
+  await gotoHostReader(page)
+  await nav(page).click()
+  const more = drawer(page).getByRole('button', { name: /查看更多评论/ })
+  await expect(more).toBeVisible()
+  for (const theme of ['white', 'eyecare', 'grey', 'dark', 'zhulin', 'parchment', 'huitu', 'xingye']) {
+    await page.evaluate(theme => {
+      const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+      r.update_settings({ ...r.settings, theme })
+    }, theme)
+    await expect.poll(() => more.evaluate(el => {
+      // color-mix 的计算值是 color(srgb r g b)，分量为 0–1；rgb() 分量为 0–255。
+      const parse = c => {
+        const m = c.match(/[\d.]+/g).map(Number)
+        return { rgb: c.startsWith('color(') ? m.slice(0, 3).map(v => v * 255) : m.slice(0, 3), a: m.length > 3 ? m[3] : 1 }
+      }
+      const layers = []
+      for (let e = el; e; e = e.parentElement) {
+        const c = parse(getComputedStyle(e).backgroundColor)
+        if (c.a > 0) { layers.unshift(c); if (c.a >= 1) break }
+      }
+      const bg = layers.reduce((rgb, l) => rgb.map((v, i) => v * (1 - l.a) + l.rgb[i] * l.a), [255, 255, 255])
+      const fg = parse(getComputedStyle(el).color)
+      const lum = rgb => rgb.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 })
+        .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0)
+      const [a, b] = [lum(fg.rgb.map((v, i) => v * fg.a + bg[i] * (1 - fg.a))), lum(bg)]
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+    }), `${theme} 主题下「查看更多评论」对比度不足`).toBeGreaterThanOrEqual(4.5)
+  }
+})
