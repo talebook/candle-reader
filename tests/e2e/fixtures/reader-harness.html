@@ -59,8 +59,10 @@
       debug: false,
       themes_css: "/css/themes.css",
       book_url: params.has('missing_toc') ? '/tests/e2e/fixtures/missing-toc/'
-        : audiobookEnabled ? '/tests/e2e/fixtures/audiobook/' : '/demo/book1.epub',
-      display_url: "",
+        : audiobookEnabled ? '/tests/e2e/fixtures/audiobook/'
+        : params.has('book') ? `/demo/${params.get('book')}` : '/demo/book1.epub',
+      // ?book=xi-you-ji.epub&at=…：换用一个正文文件里有多章的书，并从指定位置开始读（跨章页面的用例）。
+      display_url: params.get('at') || "",
       book_id: 101,
       annotation_callbacks: annotationCallbacks,
       audiobook_callbacks: audiobookEnabled ? audiobookCallbacks : null,

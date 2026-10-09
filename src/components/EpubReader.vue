@@ -221,6 +221,7 @@
 
 <script>
 /* global ePub */
+import { markRaw } from 'vue'
 import { normalizeNoteSettings } from '@/note-settings'
 import Settings from './Settings.vue'
 import BookToc from './BookToc.vue'
@@ -437,14 +438,15 @@ export default {
         console.warn('Candle Reader login callback failed:', error);
       }
     },
-    // 读取本章自己的划线与评论，用于在正文绘制标记。
-    load_chapter_annotations: async function (chapter) {
-      if (!chapter || !this.annotation_repository || !this.comments_enabled) return;
+    // 读取这些章节里自己的划线与评论，用于在正文绘制标记。一页可能横跨两章，所以按章节列表读取。
+    load_chapter_annotations: async function (chapters) {
+      chapters = [].concat(chapters).filter(Boolean);
+      if (!chapters.length || !this.annotation_repository || !this.comments_enabled) return;
       const request = ++this.annotation_chapter_request;
       try {
-        const annotations = await this.annotation_repository.load({ chapter });
+        const loaded = await Promise.all(chapters.map(chapter => this.annotation_repository.load({ chapter })));
         if (request !== this.annotation_chapter_request) return;
-        annotations.forEach(this.render_annotation);
+        loaded.flat().forEach(this.render_annotation);
       } catch (error) {
         console.warn('Candle Reader chapter annotations could not be loaded:', error);
       }
@@ -453,7 +455,8 @@ export default {
       this.comment_paragraph = paragraph;
       this.hide_toolbar();
       if (this.menu.current_panel !== 'annotations') this.set_menu('annotations');
-      this.$refs.comments?.show(scope, paragraph?.paragraph_cfi || '');
+      // 本段评论按段落自己所在的章节查询：一页横跨两章时，段落不一定属于页首那一章。
+      this.$refs.comments?.show(scope, paragraph?.paragraph_cfi || '', String(paragraph?.toc?.label || '').trim());
     },
     on_open_annotations: function () {
       if (this.menu.current_panel === 'annotations') return this.set_menu('hide');
@@ -471,7 +474,7 @@ export default {
     // 评论增删或公开范围变化后，同步正文中的标记与段尾气泡。
     on_comments_changed: function () {
       this.clear_annotation_marks();
-      this.load_chapter_annotations(this.comment_chapter);
+      this.load_chapter_annotations(this.visible_chapters());
       this.refresh_comment_icons();
     },
     read_public_preference: function () {
@@ -800,7 +803,7 @@ export default {
         this.annotation_chapter_request++;
         this.clear_annotation_marks();
       } else if (!commentsWereEnabled && this.comments_enabled) {
-        this.load_chapter_annotations(this.comment_chapter);
+        this.load_chapter_annotations(this.visible_chapters());
       }
       if (commentsWereEnabled !== this.comments_enabled) this.refresh_comment_icons();
       if (!this.settings.show_selection_toolbar) this.hide_toolbar();
@@ -1398,11 +1401,19 @@ export default {
           this.current_toc_title = toc.label;
           this.current_toc = toc;
 
-          // 只有当章节标题实际变化时，才重新加载评论，避免不必要的 API 请求
-          if (this.last_toc_label !== toc.label) {
-            this.load_comments_summary(contents, toc);
-            this.load_chapter_annotations(toc.label.trim());
-            this.last_toc_label = toc.label;
+          // 一页可能从上一章末尾跨进下一章：页尾所在章节的段尾气泡和划线也要显示。
+          const visible = [{ contents, toc }];
+          const endContents = loc.end && contents_list.find(c => String(loc.end).includes(c.cfiBase));
+          const endToc = endContents && this.find_toc(new ePub.CFI(loc.end), endContents);
+          if (endToc && endToc.label !== toc.label) visible.push({ contents: endContents, toc: endToc });
+          this.visible_tocs = markRaw(visible);
+
+          // 只有当可见章节实际变化时，才重新加载评论，避免不必要的 API 请求
+          const labels = visible.map(item => item.toc.label).join('\n');
+          if (this.last_toc_label !== labels) {
+            visible.forEach(item => this.load_comments_summary(item.contents, item.toc));
+            this.load_chapter_annotations(this.visible_chapters());
+            this.last_toc_label = labels;
           }
         }
       } catch (error) {
@@ -1523,16 +1534,25 @@ export default {
         });
       }
     },
+    // 当前页上出现的章节（页首一章，跨章时再加页尾一章）。
+    visible_chapters: function () {
+      const tocs = this.visible_tocs.length ? this.visible_tocs.map(item => item.toc) : [this.current_toc];
+      const chapters = tocs.map(toc => String(toc?.label || '').trim()).filter(Boolean);
+      return chapters.length ? [...new Set(chapters)] : [this.comment_chapter];
+    },
     refresh_comment_icons: function () {
       this.comments_request++;
       if (!this.rendition) return;
       for (const contents of this.rendition.getContents()) {
         contents.document.querySelectorAll('.comment-anchor, .comment-icon').forEach(icon => icon.remove());
       }
-      if (this.comments_enabled && this.current_toc?.elem) {
-        delete this.current_toc.load_time;
-        const contents = this.rendition.getContents().find(c => c.document === this.current_toc.elem.ownerDocument);
-        if (contents) this.load_comments_summary(contents, this.current_toc);
+      if (!this.comments_enabled) return;
+      const visible = this.visible_tocs.length ? this.visible_tocs : [{ toc: this.current_toc }];
+      for (const { toc } of visible) {
+        if (!toc?.elem) continue;
+        delete toc.load_time;
+        const contents = this.rendition.getContents().find(c => c.document === toc.elem.ownerDocument);
+        if (contents) this.load_comments_summary(contents, toc);
       }
     },
     retryLoad: function() {
@@ -1759,7 +1779,8 @@ export default {
     current_toc_title: "",
     current_toc: null, // 当前阅读的章节对象
     current_toc_progress: "",
-    last_toc_label: "", // 上一次的章节标题，用于检测章节变化
+    last_toc_label: "", // 上一次的可见章节标题，用于检测章节变化
+    visible_tocs: [], // 当前页上出现的章节及其正文文档
 
     toolbar_left: -999,
     toolbar_top: 0,

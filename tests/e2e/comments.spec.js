@@ -369,3 +369,70 @@ test('评论区强调色文字在各主题下与底色对比度不低于 4.5:1',
     }), `${theme} 主题下「查看更多评论」对比度不足`).toBeGreaterThanOrEqual(4.5)
   }
 })
+
+test('一页横跨两章时，页尾那一章的段落评论也显示气泡，点开按段落所在章节列出', async ({ page }) => {
+  // 西游记一个正文文件里有好几回；从第三回开头那段所在的页开始读，这一页从第二回末尾跨进第三回。
+  await gotoHostReader(page, '&book=xi-you-ji.epub&at=' + encodeURIComponent('5039418960600707614_23962-0-0.txt.xhtml#chapter-003'))
+  const target = '那厢乃傲来国界'
+  const layout = await page.evaluate(async target => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    const find = () => {
+      for (const c of r.rendition.getContents()) {
+        const p = [...c.document.querySelectorAll('p')].find(p => p.textContent.includes(target))
+        if (p) return { c, p }
+      }
+    }
+    const { c, p } = find()
+    await r.rendition.display(c.cfiFromNode(p))
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    return { start: r.current_toc.label }
+  }, target)
+  expect(layout.start, '前置条件：页首仍在第二回').toContain('第二回')
+
+  // 在第三回的这段选几个字，写一条公开评论。
+  await page.evaluate(async target => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    for (const c of r.rendition.getContents()) {
+      const p = [...c.document.querySelectorAll('p')].find(p => p.textContent.includes(target))
+      if (!p) continue
+      const walker = c.document.createTreeWalker(p, NodeFilter.SHOW_TEXT)
+      let node
+      while ((node = walker.nextNode()) && node.textContent.trim().length < 5);
+      const range = c.document.createRange()
+      range.setStart(node, 0)
+      range.setEnd(node, 4)
+      r.rendition.emit('selected', c.cfiFromRange(range), c)
+    }
+    r.open_note_editor()
+    r.annotation_editor_content = '跨章页面的段落评论'
+    r.annotation_editor_private = false
+    await r.save_note()
+  }, target)
+  const saved = (await hostCalls(page, 'save')).at(-1)
+  expect(saved.query.chapter).toContain('第三回')
+
+  // 保存后气泡立刻出现在这段末尾，不用翻页。
+  const bubble = () => page.evaluate(target => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    for (const c of r.rendition.getContents()) {
+      const p = [...c.document.querySelectorAll('p')].find(p => p.textContent.includes(target))
+      const icon = p && p.querySelector('.comment-icon')
+      if (icon) return icon.textContent.trim()
+    }
+    return null
+  }, target)
+  await expect.poll(bubble).toBe('1')
+
+  // 点气泡：本段评论按第三回查询，列出刚写的评论。
+  await page.evaluate(target => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    for (const c of r.rendition.getContents()) {
+      const p = [...c.document.querySelectorAll('p')].find(p => p.textContent.includes(target))
+      p?.querySelector('.comment-icon')?.click()
+    }
+  }, target)
+  await expect(drawer(page).getByText('跨章页面的段落评论')).toBeVisible()
+  const query = (await hostCalls(page, 'list')).at(-1).query
+  expect(query.scope).toBe('paragraph')
+  expect(query.chapter).toContain('第三回')
+})

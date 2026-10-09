@@ -98,7 +98,7 @@ import CommentItem from './CommentItem.vue'
 import CommentList from './CommentList.vue'
 
 const PAGE_SIZE = 20
-const list_state = scope => ({ scope, paragraph_cfi: '', items: [], cursor: null, has_more: false, loading: false, error: '', need_login: false, request: 0 })
+const list_state = scope => ({ scope, paragraph_cfi: '', paragraph_chapter: '', items: [], cursor: null, has_more: false, loading: false, error: '', need_login: false, request: 0 })
 
 export default {
   name: 'ReaderComments',
@@ -166,9 +166,10 @@ export default {
   },
   methods: {
     // ---- 列表 ----
-    show: function (scope, paragraphCfi = '') {
+    show: function (scope, paragraphCfi = '', paragraphChapter = '') {
       this.drawer.scope = scope
       this.drawer.paragraph_cfi = paragraphCfi
+      this.drawer.paragraph_chapter = paragraphChapter
       this.$refs.drawerList?.scroll_to_top()
       return this.load(this.drawer, true)
     },
@@ -191,7 +192,7 @@ export default {
       try {
         const query = state === this.replies
           ? { root_id: this.detail.root.id, cursor: state.cursor, limit: PAGE_SIZE }
-          : { scope: state.scope, chapter: this.chapter, paragraph_cfi: state.paragraph_cfi, cursor: state.cursor, limit: PAGE_SIZE }
+          : { scope: state.scope, chapter: (state.scope === 'paragraph' && state.paragraph_chapter) || this.chapter, paragraph_cfi: state.paragraph_cfi, cursor: state.cursor, limit: PAGE_SIZE }
         const result = await (state === this.replies ? this.repository.replies(query) : this.repository.list(query))
         // 切换范围后迟到的响应不能混入新范围。
         if (request !== state.request) return
