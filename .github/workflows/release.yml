@@ -40,28 +40,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Archive dist
-        run: |
-          if [ -d dist ]; then
-            rm -f ${ASSET_NAME}
-            zip -r ${ASSET_NAME} dist
-          else
-            echo "dist directory not found"
-            exit 1
-          fi
-
       - name: Determine tag to use
         id: tag
         run: |
@@ -85,6 +63,35 @@ jobs:
           echo "Using latest tag: ${TAG}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Check out the tag being released
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        # A manual run picks the latest tag; build that tag, not the branch the run was started from,
+        # so dist.zip and the npm package match the version they are published as.
+        run: git checkout --detach "refs/tags/${TAG}"
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Archive dist
+        run: |
+          if [ -d dist ]; then
+            rm -f ${ASSET_NAME}
+            zip -r ${ASSET_NAME} dist
+          else
+            echo "dist directory not found"
+            exit 1
+          fi
+
       - name: Publish to npm
         env:
           TAG: ${{ steps.tag.outputs.tag }}
@@ -100,9 +107,20 @@ jobs:
           VERSION="$((10#${BASH_REMATCH[1]})).$((10#${BASH_REMATCH[2]})).$((10#${BASH_REMATCH[3]}))"
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           NAME=$(node -p "require('./package.json').name")
-          if npm view "${NAME}@${VERSION}" version >/dev/null 2>&1; then
-            echo "${NAME}@${VERSION} already on npm, skipping publish"
+          if [ "$NAME" != "@talebook/candle-reader" ]; then
+            echo "Tag ${TAG} predates the npm package (name: ${NAME}), skipping publish"
             exit 0
+          fi
+          # Publish only on a confirmed 404; any other lookup failure must not be read as "missing"
+          if OUT=$(npm view "${NAME}@${VERSION}" version 2>&1); then
+            if [ -n "$OUT" ]; then
+              echo "${NAME}@${VERSION} already on npm, skipping publish"
+              exit 0
+            fi
+          elif ! echo "$OUT" | grep -q E404; then
+            echo "npm view failed:"
+            echo "$OUT"
+            exit 1
           fi
           npm publish --provenance
 
