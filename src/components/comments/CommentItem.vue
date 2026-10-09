@@ -5,7 +5,6 @@
       <span class="comment-author">{{ record.author_name || '书友' }}</span>
       <span v-if="tags && record.annotation_type === 'highlight'" class="comment-tag">划线</span>
       <span v-if="tags && record.annotation_type === 'book_comment'" class="comment-tag">整书评论</span>
-      <span v-if="tags && is_private" class="comment-tag">私密</span>
       <time class="comment-time">{{ time_text }}</time>
     </div>
     <p class="comment-content">
@@ -15,19 +14,23 @@
         <button type="button" class="comment-inline" @click.stop="$emit('remove', record)">删除</button>
       </template>
     </p>
-    <div v-if="interactive" class="comment-actions">
-      <button type="button" class="comment-vote" :aria-pressed="String(record.user_vote === 1)" :aria-label="`赞 ${record.like_count || 0}`"
-        @click.stop="$emit('vote', record, 1)">
-        <v-icon size="16" aria-hidden="true">{{ record.user_vote === 1 ? 'mdi-thumb-up' : 'mdi-thumb-up-outline' }}</v-icon>{{ record.like_count || 0 }}
-      </button>
-      <button type="button" class="comment-vote" :aria-pressed="String(record.user_vote === -1)" :aria-label="`踩 ${record.dislike_count || 0}`"
-        @click.stop="$emit('vote', record, -1)">
-        <v-icon size="16" aria-hidden="true">{{ record.user_vote === -1 ? 'mdi-thumb-down' : 'mdi-thumb-down-outline' }}</v-icon>{{ record.dislike_count || 0 }}
-      </button>
-      <button type="button" class="comment-reply" @click.stop="$emit('reply', record)">{{ reply_text }}</button>
-    </div>
-    <div v-else-if="private_replies" class="comment-actions">
-      <button type="button" class="comment-reply" @click.stop="$emit('reply', record)">{{ record.reply_count }} 条回复 · 仅你可见</button>
+    <div v-if="interactive || private_replies || is_private" class="comment-footer">
+      <div v-if="interactive" class="comment-actions">
+        <button type="button" class="comment-vote" :aria-pressed="String(record.user_vote === 1)" :aria-label="`赞 ${record.like_count || 0}`"
+          @click.stop="$emit('vote', record, 1)">
+          <v-icon size="16" aria-hidden="true">{{ record.user_vote === 1 ? 'mdi-thumb-up' : 'mdi-thumb-up-outline' }}</v-icon>{{ record.like_count || 0 }}
+        </button>
+        <button type="button" class="comment-vote" :aria-pressed="String(record.user_vote === -1)" :aria-label="`踩 ${record.dislike_count || 0}`"
+          @click.stop="$emit('vote', record, -1)">
+          <v-icon size="16" aria-hidden="true">{{ record.user_vote === -1 ? 'mdi-thumb-down' : 'mdi-thumb-down-outline' }}</v-icon>{{ record.dislike_count || 0 }}
+        </button>
+        <button type="button" class="comment-reply" @click.stop="$emit('reply', record)">{{ reply_text }}</button>
+      </div>
+      <div v-else-if="private_replies" class="comment-actions">
+        <button type="button" class="comment-reply" @click.stop="$emit('reply', record)">{{ record.reply_count }} 条回复 · 仅你可见</button>
+      </div>
+      <!-- 私密记录（含划线）在右下角标明，只有作者自己看得到。 -->
+      <span v-if="is_private" class="comment-private">私密</span>
     </div>
   </article>
 </template>
@@ -40,7 +43,7 @@ export default {
     record: { type: Object, required: true },
     // 列表中的主评论整条可点，进入评论详情页。
     clickable: { type: Boolean, default: false },
-    // 「我的」与私密详情里显示类型和私密标签。
+    // 「我的」与私密详情里显示类型标签（划线、整书评论）；私密标记不受此限，总在右下角显示。
     tags: { type: Boolean, default: false },
     // 主评论转为私密后，其下回复只读。
     readonly: { type: Boolean, default: false },
@@ -82,7 +85,9 @@ export default {
 .comment-content { margin: 6px 0 0; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; color: rgb(var(--v-theme-on-surface)); }
 .comment-reply-to { color: rgba(var(--v-theme-on-surface), 0.7); }
 .comment-inline { margin-left: 8px; font-size: 13px; color: rgb(var(--v-theme-on-surface)); color: color-mix(in srgb, rgb(var(--v-theme-primary)) 60%, rgb(var(--v-theme-on-surface))); white-space: nowrap; }
-.comment-actions { display: flex; align-items: center; gap: 4px; margin: 4px 0 0 -8px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.7); }
+.comment-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; min-height: 24px; }
+.comment-private { margin-left: auto; padding: 0 6px; border-radius: 4px; font-size: 12px; line-height: 20px; white-space: nowrap; color: rgba(var(--v-theme-on-surface), 0.7); background: rgba(var(--v-theme-on-surface), 0.08); }
+.comment-actions { display: flex; align-items: center; gap: 4px; margin: 0 0 0 -8px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.7); }
 .comment-actions button { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px; border-radius: 6px; }
 .comment-actions button[aria-pressed=true] { color: rgb(var(--v-theme-on-surface)); color: color-mix(in srgb, rgb(var(--v-theme-primary)) 60%, rgb(var(--v-theme-on-surface))); font-weight: 600; }
 .comment-item button:focus-visible { outline: 2px solid rgb(var(--v-theme-primary)); outline-offset: 1px; }

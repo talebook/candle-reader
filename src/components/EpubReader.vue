@@ -2133,8 +2133,8 @@ html, body {
     border-radius: 0;
     background: rgb(var(--v-theme-surface));
   }
-  .v-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { left: auto; right: 0; width: var(--candle-panel-annotations-width, 420px); border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
-  .v-bottom-sheet.reader-side-left > .v-bottom-sheet__content.v-overlay__content { left: 0; right: auto; width: var(--candle-panel-toc-width, 300px); border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
+  .v-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { left: auto; right: 0; width: var(--candle-panel-annotations-width, 420px); }
+  .v-bottom-sheet.reader-side-left > .v-bottom-sheet__content.v-overlay__content { left: 0; right: auto; width: var(--candle-panel-toc-width, 300px); }
   .v-bottom-sheet.settings-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { width: var(--candle-panel-settings-width, 380px); }
 }
 

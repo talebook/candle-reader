@@ -21,7 +21,7 @@ test.describe('宽屏', () => {
       await openPanel(page, panel)
       const resizer = page.getByRole('separator', { name: `调整${label}宽度` })
       await expect(resizer).toBeVisible()
-      await expect(resizer.locator('.panel-resizer-grip')).toBeVisible()
+      await expect(resizer.locator('.panel-resizer-knob')).toBeVisible()
       await expect.poll(() => sheetWidth(page)).toBe(width)
 
       // 拖动：朝外侧拉宽 100px
@@ -53,19 +53,73 @@ test.describe('宽屏', () => {
     })
   }
 
-  test('宽度不小于 260px，并给正文至少留 360px', async ({ page }) => {
+  test('宽度不小于 260px，并给正文至少留 360px；Home 恢复默认', async ({ page }) => {
     await gotoHostReader(page)
     await openPanel(page, 'annotations')
     const resizer = page.getByRole('separator', { name: '调整评论宽度' })
     // 面板展开动画结束时浮层会把焦点移进面板，等焦点进了面板再聚焦分隔条。
     await expect.poll(() => page.evaluate(() => document.activeElement?.classList.contains('v-bottom-sheet__content'))).toBe(true)
+    const box = await resizer.boundingBox()
+    const y = box.y + box.height / 2
+    // 拖到最窄、最宽都会被限制住
+    await page.mouse.move(box.x + 4, y)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 600, y, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(() => sheetWidth(page)).toBe(260)
+    await expect(resizer).toHaveAttribute('aria-valuemin', '260')
+    await expect(resizer).toHaveAttribute('aria-valuemax', '720')
+    const left = await resizer.boundingBox()
+    await page.mouse.move(left.x + 4, y)
+    await page.mouse.down()
+    await page.mouse.move(left.x - 900, y, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(() => sheetWidth(page)).toBe(720)
     await resizer.focus()
     await page.keyboard.press('Home')
-    await expect.poll(() => sheetWidth(page)).toBe(260)
-    await page.keyboard.press('End')
-    await expect.poll(() => sheetWidth(page)).toBe(720)
+    await expect.poll(() => sheetWidth(page)).toBe(420)
     await page.setViewportSize({ width: 900, height: 800 })
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
     await expect.poll(() => sheetWidth(page)).toBe(540)
+  })
+
+  test('分隔线与面板边界重合，胶囊 8×24，悬停与拖动时变为深蓝', async ({ page }) => {
+    await gotoHostReader(page)
+    for (const [panel, label, side, sheet] of [['toc', '目录', 'left', '.reader-side-left'], ['annotations', '评论', 'right', '.annotation-bottom-sheet'], ['settings', '设置', 'right', '.settings-bottom-sheet']]) {
+      await openPanel(page, panel)
+      const resizer = page.getByRole('separator', { name: `调整${label}宽度` })
+      await expect.poll(() => page.evaluate(() => document.activeElement?.classList.contains('v-bottom-sheet__content'))).toBe(true)
+      const geometry = await resizer.evaluate((el, [side, sheet]) => {
+        const pane = document.querySelector(`${sheet} > .v-bottom-sheet__content`).getBoundingClientRect()
+        const knob = el.querySelector('.panel-resizer-knob').getBoundingClientRect()
+        return {
+          hit: el.getBoundingClientRect().width,
+          line: el.getBoundingClientRect().x + 4,
+          edge: side === 'left' ? pane.x + pane.width : pane.x,
+          knob: [knob.width, knob.height],
+        }
+      }, [side, sheet])
+      expect(geometry.hit).toBe(9)
+      expect(Math.abs(geometry.line - geometry.edge)).toBeLessThan(0.5)
+      expect(geometry.knob).toEqual([8, 24])
+      const colors = () => resizer.evaluate(el => ({
+        line: getComputedStyle(el, '::before').backgroundColor,
+        knob: getComputedStyle(el.querySelector('.panel-resizer-knob')).backgroundColor,
+        grip: getComputedStyle(el.querySelector('.panel-resizer-knob')).color,
+      }))
+      expect((await colors()).knob).not.toBe('rgb(37, 99, 235)')
+      await resizer.hover()
+      await expect.poll(colors).toEqual({ line: 'rgb(37, 99, 235)', knob: 'rgb(37, 99, 235)', grip: 'rgb(255, 255, 255)' })
+      await page.mouse.move(0, 400)
+    }
   })
 })
 

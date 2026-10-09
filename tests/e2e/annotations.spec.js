@@ -128,7 +128,8 @@ test('未注入回调时按书保存到 localStorage，并出现在「我的」'
   const fullPage = page.getByRole('dialog', { name: '完整评论页' })
   await fullPage.getByRole('button', { name: '我的' }).click()
   await expect(fullPage.getByText('本地划线原文')).toBeVisible()
-  await expect(fullPage.locator('.comment-tag')).toHaveText(['划线', '私密'])
+  await expect(fullPage.locator('.comment-tag')).toHaveText(['划线'])
+  await expect(fullPage.locator('.comment-private')).toHaveText('私密')
 })
 
 test('宿主回调负责读取和写入，且收到书籍上下文', async ({ page }) => {

@@ -87,7 +87,8 @@ test('完整评论页独立占满区域，「我的」含私密记录，返回�
 
   await fullPage(page).getByRole('button', { name: '我的' }).click()
   await expect(fullPage(page).locator('.comment-item')).toHaveCount(3)
-  await expect(item(fullPage(page), 3).locator('.comment-tag')).toHaveText(['划线', '私密'])
+  await expect(item(fullPage(page), 3).locator('.comment-tag')).toHaveText(['划线'])
+  await expect(item(fullPage(page), 3).locator('.comment-private')).toHaveText('私密')
   await expect(item(fullPage(page), 3).getByRole('button', { name: '修改' })).toHaveCount(0)
   // 私密记录没有赞踩和回复入口。
   await expect(item(fullPage(page), 5).locator('.comment-vote')).toHaveCount(0)
