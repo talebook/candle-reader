@@ -273,6 +273,18 @@ test('划线等待写入成功才显示标记，成功后不弹保存提示', as
   await expect(page.locator('.candle-reader-annotation')).toHaveCount(1)
   await expect(page.locator('.selection-preview')).toHaveCount(0)
   await expect(page.getByText('划线已保存')).toHaveCount(0)
+
+  // 点划线打开的是划线所在段落的评论，不是整章评论。
+  const box = await page.locator('.candle-reader-annotation rect').first().boundingBox()
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  const drawer = page.locator('.reader-comments-drawer')
+  await expect(drawer.getByText('本段评论', { exact: true })).toBeVisible()
+  const expected = await page.evaluate(() => {
+    const reader = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    const contents = reader.rendition.getContents().find(item => item.document.getElementById('passage'))
+    return reader.paragraph_location(contents.document.getElementById('passage'), contents).paragraph_cfi
+  })
+  await expect.poll(() => readState(page, 'comment_paragraph').then(paragraph => paragraph?.paragraph_cfi)).toBe(expected)
 })
 
 test('关闭「显示全部划线和评论」不影响评论入口', async ({ page }) => {

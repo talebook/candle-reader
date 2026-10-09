@@ -422,7 +422,7 @@ export default {
         this.rendition.annotations.highlight(
           annotation.cfi,
           { annotationId: annotation.id || annotation.client_id },
-          () => this.open_comments('chapter'),
+          () => this.open_annotation_paragraph(annotation),
           'candle-reader-annotation',
           { fill: this.annotation_color(annotation), 'fill-opacity': '0.38', 'mix-blend-mode': 'multiply' },
         );
@@ -481,6 +481,19 @@ export default {
       if (this.menu.current_panel !== 'annotations') this.set_menu('annotations');
       // 本段评论按段落自己所在的章节查询：一页横跨两章时，段落不一定属于页首那一章。
       this.$refs.comments?.show(scope, paragraph?.paragraph_cfi || '', String(paragraph?.toc?.label || '').trim());
+    },
+    // 点正文里的划线：打开划线所在段落的评论，而不是整章评论。
+    open_annotation_paragraph: function (annotation) {
+      const cfi = String(annotation?.cfi || '');
+      const contents = this.rendition?.getContents().find(item => cfi.includes(item.cfiBase));
+      let range = null;
+      try { range = contents?.range(cfi); } catch (error) { range = null; }
+      if (!range) return this.open_comments('chapter');
+      const chapter = String(annotation.chapter || '').trim();
+      const toc = this.visible_tocs.find(item => item.contents === contents && String(item.toc?.label || '').trim() === chapter)?.toc ||
+        this.visible_tocs.find(item => item.contents === contents)?.toc || this.current_toc;
+      const paragraph = this.paragraph_of(range.endContainer, contents);
+      this.open_comments('paragraph', { toc, contents, ...this.paragraph_location(paragraph, contents) });
     },
     on_open_annotations: function () {
       if (this.menu.current_panel === 'annotations') return this.set_menu('hide');
