@@ -1,6 +1,6 @@
 {
   "name": "@talebook/candle-reader",
-  "version": "1.1.0",
+  "version": "26.10.9",
   "description": "秉烛夜读：可嵌入 talebook 的 EPUB 阅读器（打包产物）",
   "license": "MIT",
   "repository": {

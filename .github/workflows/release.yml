@@ -8,7 +8,8 @@
 # - Ensure repository Actions permissions allow writing releases, or set a RELEASE_PAT secret (repo scope)
 #   and it will be used instead of the builtin GITHUB_TOKEN.
 # - The release asset uploaded is ./dist.zip (your build must produce dist/).
-# - The same dist/ is also published to npm as @talebook/candle-reader, versioned by the tag (v1.2.0 -> 1.2.0).
+# - The same dist/ is also published to npm as @talebook/candle-reader, versioned by the tag. Tags are date
+#   versions vYY.MM.DD (e.g. v26.10.09); semver forbids leading zeros, so the npm version drops them (26.10.9).
 #   Publishing uses npm Trusted Publishing (GitHub OIDC), so no NPM token secret is needed; the package's
 #   Trusted Publisher on npmjs.com must point at talebook/candle-reader + release.yml. A version that already
 #   exists on npm is skipped, so re-running for an old tag only refreshes the GitHub release asset.
@@ -91,7 +92,12 @@ jobs:
           set -e
           # Trusted Publishing needs npm >= 11.5.1
           npm install -g npm@^11.5.1
-          VERSION="${TAG#v}"
+          # vYY.MM.DD -> YY.M.D (semver forbids leading zeros)
+          if ! [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Tag '$TAG' is not vYY.MM.DD, cannot map it to an npm version"
+            exit 1
+          fi
+          VERSION="$((10#${BASH_REMATCH[1]})).$((10#${BASH_REMATCH[2]})).$((10#${BASH_REMATCH[3]}))"
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           NAME=$(node -p "require('./package.json').name")
           if npm view "${NAME}@${VERSION}" version >/dev/null 2>&1; then

@@ -31,10 +31,10 @@ make dist   # 打包，并生成可直接部署的 dist/demo.html
 打包产物以 npm 包 [`@talebook/candle-reader`](https://www.npmjs.com/package/@talebook/candle-reader) 发布，包内只有 `dist/`，宿主（talebook）锁定版本后把 `dist/` 拷到自己的静态目录使用。
 
 ```bash
-git tag v1.2.0 && git push origin v1.2.0
+git tag v26.10.09 && git push origin v26.10.09
 ```
 
-推送 `v*` tag 后 `.github/workflows/release.yml` 会打包，把 `dist/` 以 tag 对应的版本号（`v1.2.0` → `1.2.0`）发布到 npm，同时把 `dist.zip` 上传到 GitHub Release。发布走 npm Trusted Publishing（GitHub OIDC），仓库里不保存 npm token；包在 npmjs.com 的 Trusted Publisher 需指向本仓库的 `release.yml` 。`package.json` 里的 `version` 只作参考，以 tag 为准。
+版本号用发版日期 `vYY.MM.DD` 。推送 `v*` tag 后 `.github/workflows/release.yml` 会打包，把 `dist/` 以 tag 对应的版本号发布到 npm（semver 不允许前导零，`v26.10.09` 发布为 `26.10.9` ；同一天只能发一版），同时把 `dist.zip` 上传到 GitHub Release。发布走 npm Trusted Publishing（GitHub OIDC），仓库里不保存 npm token；包在 npmjs.com 的 Trusted Publisher 需指向本仓库的 `release.yml` 。`package.json` 里的 `version` 只作参考，以 tag 为准。
 
 本地联调时不必发版：`make dist install` 把产物直接拷进本地 talebook 的静态目录。
 
