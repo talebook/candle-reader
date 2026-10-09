@@ -2,12 +2,26 @@
 
 秉烛夜读。
 
-## 演示
+**在线体验：<https://talebook.github.io/candle-reader/>**
+
+不用安装，打开即可试读《西游记》，体验划线、评论、回复和赞踩：
+
+| 入口 | 说明 |
+|---|---|
+| [介绍页](https://talebook.github.io/candle-reader/) | 功能介绍，以及下面各个入口 |
+| [从第一回开始](https://talebook.github.io/candle-reader/demo.html?fresh=1) | 以读者「悟空迷」的身份从第一回读起 |
+| [继续上次阅读](https://talebook.github.io/candle-reader/demo.html) | 回到上次读到的位置 |
+| [以游客身份](https://talebook.github.io/candle-reader/demo.html?fresh=1&guest=1) | 未登录状态，互动时引导登录 |
+| [诊断模式](https://talebook.github.io/candle-reader/demo.html?fresh=1&diag=1) | 记录选中文字相关事件，用于真机排查 |
+
+评论数据只存在浏览器内存里，不连任何后端，刷新即重置。每次合并进 `main` 自动重新发布。
+
+## 本地演示
 
 ```bash
 make dev    # 打开 http://localhost:5001/demo.html
 make dist   # 打包，并生成可直接部署的 dist/demo.html
-            # 合并进 main 后由 .github/workflows/pages.yml 发布到 https://talebook.github.io/candle-reader/
+            # 合并进 main 后由 .github/workflows/pages.yml 发布到上面的在线体验地址
 ```
 
 演示页用《西游记》和一个纯内存版宿主（`demo/memory-host.js`，完整实现下面的回调契约），可以体验划线、评论、回复、赞踩、「我的」和游客登录引导；数据只在内存里，刷新即重置。
