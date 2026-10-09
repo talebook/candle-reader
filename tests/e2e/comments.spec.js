@@ -90,6 +90,15 @@ test('完整评论页独立占满区域，「我的」含私密记录，返回�
   await expect(item(fullPage(page), 3).locator('.comment-tag')).toHaveText(['划线'])
   await expect(item(fullPage(page), 3).locator('.comment-private')).toHaveText('私密')
   await expect(item(fullPage(page), 3).getByRole('button', { name: '修改' })).toHaveCount(0)
+  // 修改、删除放在每条记录底部一行的右端，不跟在正文后面；按钮留 8px 内边距，文字与右侧时间对齐。
+  const placements = await fullPage(page).locator('.comment-item').evaluateAll(items => items.map(el => {
+    const footer = el.querySelector('.comment-footer').getBoundingClientRect()
+    const remove = Array.from(el.querySelectorAll('button')).find(button => button.textContent.trim() === '删除')
+    const rect = remove.getBoundingClientRect()
+    return { inFooter: Boolean(remove.closest('.comment-footer')), inContent: Boolean(remove.closest('.comment-content')), rightGap: Math.round(footer.right - rect.right), below: rect.top >= el.querySelector('.comment-content').getBoundingClientRect().bottom - 1 }
+  }))
+  expect(placements).toHaveLength(3)
+  for (const placement of placements) expect(placement).toEqual({ inFooter: true, inContent: false, rightGap: -8, below: true })
   // 私密记录没有赞踩和回复入口。
   await expect(item(fullPage(page), 5).locator('.comment-vote')).toHaveCount(0)
   await expect(item(fullPage(page), 5).getByRole('button', { name: '1 条回复 · 仅你可见' })).toBeVisible()
