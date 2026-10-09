@@ -18,6 +18,11 @@
 //   mask    阅读时盖在大图上的半透明蒙版色，柔化背景、提升正文可读性（type=image）
 //   sample  卡片预览里的示例文字
 
+// 皮肤图片随打包产物放在 themes/skins/ 下。阅读器常部署在子路径（talebook 的 /static/candle-reader/、
+// GitHub Pages 的 /candle-reader/），所以按打包脚本自己的地址解析，不写死站点根目录；开发时由 vite 从 public/ 根目录提供。
+const SKIN_BASE = import.meta.env.DEV ? '/themes/skins/' : import.meta.url.slice(0, import.meta.url.lastIndexOf('/') + 1) + 'themes/skins/'
+const skin = file => SKIN_BASE + file
+
 export const THEMES = [
   // —— 纯色主题（沿用既有配色，作为设置面板的 4 个快捷图标）——
   { id: 'white',   name: '白色',   type: 'solid', mode: 'day',
@@ -33,30 +38,30 @@ export const THEMES = [
   { id: 'zhulin',    name: '竹林清风', type: 'image', mode: 'day',
     bg: '#eef5e4', surface: '#dbe9c6', text: '#33472f', mask: 'rgba(255,255,255,0.20)',
     bgTop: '#e9f2db', bgBottom: '#d9e8c3',
-    thumb: '/themes/skins/zhulin-thumb.svg',
-    portrait: '/themes/skins/zhulin-portrait.svg',
-    landscape: '/themes/skins/zhulin-landscape.svg',
+    thumb: skin('zhulin-thumb.svg'),
+    portrait: skin('zhulin-portrait.svg'),
+    landscape: skin('zhulin-landscape.svg'),
     sample: '看花饮美酒，听鸟临晴山' },
   { id: 'parchment', name: '故纸堆',   type: 'image', mode: 'day',
     bg: '#f7efd9', surface: '#ebdcb4', text: '#5a3b1a', mask: 'rgba(252,246,232,0.20)',
     bgTop: '#f8f0dc', bgBottom: '#edddb7',
-    thumb: '/themes/skins/parchment-thumb.svg',
-    portrait: '/themes/skins/parchment-portrait.svg',
-    landscape: '/themes/skins/parchment-landscape.svg',
+    thumb: skin('parchment-thumb.svg'),
+    portrait: skin('parchment-portrait.svg'),
+    landscape: skin('parchment-landscape.svg'),
     sample: '旧纸新墨，字里春秋' },
   { id: 'huitu',     name: '灰土',     type: 'image', mode: 'night',
     bg: '#211e1a', surface: '#36302a', text: '#cfcabf', mask: 'rgba(20,18,15,0.30)',
     bgTop: '#2e2922', bgBottom: '#13100c',
-    thumb: '/themes/skins/huitu-thumb.svg',
-    portrait: '/themes/skins/huitu-portrait.svg',
-    landscape: '/themes/skins/huitu-landscape.svg',
+    thumb: skin('huitu-thumb.svg'),
+    portrait: skin('huitu-portrait.svg'),
+    landscape: skin('huitu-landscape.svg'),
     sample: '荒土残阳，独行天地间' },
   { id: 'xingye',    name: '星夜',     type: 'image', mode: 'night',
     bg: '#101730', surface: '#1d2a52', text: '#cdd6e6', mask: 'rgba(12,16,32,0.28)',
     bgTop: '#161e37', bgBottom: '#080c1c',
-    thumb: '/themes/skins/xingye-thumb.svg',
-    portrait: '/themes/skins/xingye-portrait.svg',
-    landscape: '/themes/skins/xingye-landscape.svg',
+    thumb: skin('xingye-thumb.svg'),
+    portrait: skin('xingye-portrait.svg'),
+    landscape: skin('xingye-landscape.svg'),
     sample: '万族之上，星河为劫' },
 ]
 

@@ -91,6 +91,7 @@ async function setupAudiobook(page) {
 async function gotoAudiobookReader(page) {
   await page.goto(`${HARNESS_URL}?audiobook=1`)
   await page.getByRole('button', { name: '听书', exact: true }).waitFor({ state: 'visible' })
+  await expect(page.locator('.v-bottom-navigation button')).toHaveText(['目录', '夜晚', '评论', '设置'])
   await waitForReaderRendered(page)
 }
 
@@ -188,4 +189,12 @@ test('选中正文后可从对应时间轴片段开始听', async ({ page }) => 
   await expect(player).toBeVisible()
   await expect(player).toContainText('头好痛！', { timeout: 5000 })
   await expectActiveHighlight(page, { id: 'seg-2', text: '头好痛！' })
+})
+
+test('有声书数据经宿主回调获取，回调收到书籍上下文', async ({ page }) => {
+  await gotoAudiobookReader(page)
+  await page.getByRole('button', { name: '听书', exact: true }).click()
+  await expect(page.getByTestId('candle-audiobook-player')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.__audiobookCalls.find(call => call.operation === 'manifest')?.query))
+    .toMatchObject({ book_id: 101, book_url: '/tests/e2e/fixtures/audiobook/' })
 })

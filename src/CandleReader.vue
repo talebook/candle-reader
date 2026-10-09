@@ -3,8 +3,8 @@
           :book_url="book_url" :display_url="display_url"
           :debug="debug" :themes_css="themes_css"
           :initial_book_id="book_id"
-          :audiobook_edition_id="audiobook_edition_id"
-          :audiobook_manifest_url="audiobook_manifest_url"
+          :annotation_callbacks="annotation_callbacks"
+          :audiobook_callbacks="audiobook_callbacks"
           />
 </template>
 
@@ -36,13 +36,13 @@ export default {
       type: [Number, String],
       default: null
     },
-    audiobook_edition_id: {
-      type: [Number, String],
+    annotation_callbacks: {
+      type: Object,
       default: null
     },
-    audiobook_manifest_url: {
-      type: String,
-      default: ''
+    audiobook_callbacks: {
+      type: Object,
+      default: null
     }
   },
   data: () => ({

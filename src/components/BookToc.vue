@@ -109,10 +109,12 @@ export default {
                 return href.split('#')[0];
             };
             
-            const currentHref = normalizeHref(this.currentChapter.href);
-            const itemHref = normalizeHref(item.href);
-            
-            return currentHref === itemHref;
+            // 一个正文文件里有多章时，目录项靠锚点区分：两边都带锚点就按完整地址比较，
+            // 否则同一文件里的每一章都会被当成当前章节。
+            const current = this.currentChapter.href || '';
+            const target = item.href || '';
+            if (current.includes('#') && target.includes('#')) return current === target;
+            return normalizeHref(current) === normalizeHref(target);
         },
         scrollToCurrentChapter: function() {
             // 滚动到当前章节

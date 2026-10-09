@@ -2,25 +2,70 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>candle-reader e2e harness</title>
   <!-- 与生产 index.html 一致：JSZip 必须在 epub.js 之前引入（epub.js 靠全局 window.JSZip 解压 .epub） -->
   <script src="/js/jszip-v3.10.1.min.js"></script>
   <script src="/js/epub-v0.3.88.js"></script>
   <script type="module">
     import { Reader } from "/src/main.js"
-    const audiobookEnabled = new URLSearchParams(window.location.search).has('audiobook')
-    // server 指向本地同源，使所有 /api/** 请求都走同源、便于 Playwright route mock；
+    const params = new URLSearchParams(window.location.search)
+    const audiobookEnabled = params.has('audiobook')
+    // ?host=1 注入内存版宿主（完整回调契约）；不带参数时阅读器使用本地存储。
+    let annotationCallbacks = null
+    if (params.has('host')) {
+      const { createMockHost } = await import('./mock-host.js')
+      window.__host = createMockHost({
+        guest: params.has('guest'),
+        chapter: params.get('chapter') || '*',
+        paragraphCfi: params.get('paragraph') || '',
+        extra: Number(params.get('extra')) || 0,
+      })
+      annotationCallbacks = window.__host.callbacks
+      // &locked=1：模拟要求登录才能看评论的宿主（如 Talebook），游客读取列表时以 need_login 拒绝。
+      if (params.has('locked')) {
+        const needLogin = () => Object.assign(new Error('登录后查看评论'), { code: 'need_login' })
+        const guard = name => async (...args) => {
+          if (!(await window.__host.callbacks.user())) throw needLogin()
+          return window.__host.callbacks[name](...args)
+        }
+        annotationCallbacks = { ...annotationCallbacks, list: guard('list'), replies: guard('replies'), login: (...args) => window.__host.callbacks.login(...args) }
+      }
+    }
+    // ?audiobook=1：像真实宿主一样，把有声书回调翻译成对宿主 HTTP 接口的请求（e2e 里由 Playwright 拦截）。
+    const getJson = async (url, options) => {
+      const data = await (await fetch(url, { credentials: 'include', ...options })).json()
+      if (data.err !== 'ok' && data.err !== 'progress.conflict') throw new Error(data.msg || data.err)
+      return data
+    }
+    window.__audiobookCalls = []
+    const audiobookCallbacks = {
+      async manifest(query) { window.__audiobookCalls.push({ operation: 'manifest', query }); return getJson('/api/audiobooks/7/manifest') },
+      async timeline({ manifest_id, chapter }) {
+        return (await getJson(chapter.timeline_url || `/api/audiobooks/${manifest_id}/chapters/${chapter.number}/timeline`)).timeline
+      },
+      async start_session({ manifest_id, source, device_id }) {
+        return getJson(`/api/audiobooks/${manifest_id}/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, device_id }) })
+      },
+      async report_progress({ session_id, book_id, book_url, ...progress }) {
+        window.__audiobookCalls.push({ operation: 'report_progress', query: progress })
+        return getJson(`/api/audiobook-sessions/${session_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(progress) })
+      },
+      async end_session({ session_id }) { return getJson(`/api/audiobook-sessions/${session_id}`, { method: 'POST' }) },
+    }
+    // 评论与登录态全部走 annotation_callbacks，阅读器自身不请求任何后端；
     // book_url 用 .epub 压缩包，与生产从 talebook 服务取书一致；JSZip 就位后 headless 下可正常解压渲染。
     new Reader('#app', {
       debug: false,
       themes_css: "/css/themes.css",
-      server: window.location.origin,
-      book_url: "/demo/book1.epub",
-      display_url: "",
+      book_url: params.has('missing_toc') ? '/tests/e2e/fixtures/missing-toc/'
+        : audiobookEnabled ? '/tests/e2e/fixtures/audiobook/'
+        : params.has('book') ? `/demo/${params.get('book')}` : '/demo/book1.epub',
+      // ?book=xi-you-ji.epub&at=…：换用一个正文文件里有多章的书，并从指定位置开始读（跨章页面的用例）。
+      display_url: params.get('at') || "",
       book_id: 101,
-      audiobook_edition_id: audiobookEnabled ? 7 : null,
-      audiobook_manifest_url: audiobookEnabled ? '/api/audiobooks/7/manifest' : '',
+      annotation_callbacks: annotationCallbacks,
+      audiobook_callbacks: audiobookEnabled ? audiobookCallbacks : null,
     })
   </script>
 </head>

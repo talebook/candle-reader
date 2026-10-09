@@ -1,6 +1,6 @@
 <template>
     <!-- 设置: 分别列出亮度、字体、背景、翻页、其他 五行设置项  -->
-    <v-list density="compact">
+    <v-list class="reader-settings" density="compact">
         <v-list-item class="my-2">
             <v-row class="align-center">
                 <v-col cols="2">
@@ -101,33 +101,15 @@
             </v-row>
         </v-list-item>
 
-        <v-list-item class="my-2">
-            <v-row class="align-center">
-                <v-col cols="2">
-                    <span density="compact">滚轮翻页</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.wheel_paging == true" @click='set_and_emit("wheel_paging", true)'>开启</v-btn>
-                        <v-btn :active="opt.wheel_paging == false" @click='set_and_emit("wheel_paging", false)'>关闭</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
-        </v-list-item>
-
-
-        <v-list-item class="my-2">
-            <v-row class="align-center">
-                <v-col cols="2">
-                    <span density="compact">章评*</span>
-                </v-col>
-                <v-col cols="10">
-                    <v-btn-group variant="outlined" divided density="compact">
-                        <v-btn :active="opt.show_comments == true" @click="set_and_emit('show_comments', true)">开启</v-btn>
-                        <v-btn :active="opt.show_comments == false" @click="set_and_emit('show_comments', false)">关闭</v-btn>
-                    </v-btn-group>
-                </v-col>
-            </v-row>
+        <v-list-item v-for="item in switch_options" :key="item.key" class="my-2" :data-setting="item.key">
+            <div class="setting-switch-row">
+                <label class="setting-switch-label"
+                    :id="`setting-${item.key}`" :for="`switch-${item.key}`">{{ item.label }}</label>
+                <v-switch :id="`switch-${item.key}`" class="setting-switch" :model-value="opt[item.key]"
+                    :aria-labelledby="`setting-${item.key}`"
+                    role="switch" color="primary" density="comfortable" inset hide-details
+                    @update:model-value="set_and_emit(item.key, $event)"></v-switch>
+            </div>
         </v-list-item>
 
         <v-list-item class="my-2">
@@ -153,7 +135,7 @@
 import { THEMES } from '@/themes'
 
 export default {
-    name: 'Settings',
+    name: 'ReaderSettings',
     emits: ['update', 'open-themes'],
     computed: {
         // 设置面板里的 4 个快捷图标（纯色主题）
@@ -171,6 +153,7 @@ export default {
             letter_spacing: this.settings?.letter_spacing || this.opt.letter_spacing,
             brightness: this.settings?.brightness || this.opt.brightness,
             show_comments: this.settings?.show_comments ?? this.opt.show_comments,
+            show_selection_toolbar: this.settings?.show_selection_toolbar ?? this.opt.show_selection_toolbar,
             paging_control: this.settings?.paging_control || this.opt.paging_control,
             wheel_paging: this.settings?.wheel_paging ?? this.opt.wheel_paging,
         };
@@ -213,11 +196,25 @@ export default {
             line_height: 1.5,
             letter_spacing: 0,
             brightness: 100,
+            show_comments: true,
+            show_selection_toolbar: true,
             paging_control: "mouse_and_keyboard",
             wheel_paging: true,
         },
+        switch_options: [
+            { key: 'wheel_paging', label: '使用鼠标滚轮翻页' },
+            { key: 'show_comments', label: '显示全部划线和评论' },
+            { key: 'show_selection_toolbar', label: '选中文字后显示工具栏' },
+        ],
         themes: THEMES,
     })
 }
 
 </script>
+
+<style scoped>
+.reader-settings { padding-inline: max(0px, calc((100% - 560px) / 2)); }
+.setting-switch-row { display: flex; align-items: center; gap: 16px; }
+.setting-switch-label { flex: 1; min-width: 0; line-height: 1.5; cursor: pointer; }
+.setting-switch { flex: 0 0 auto; --v-input-control-height: 36px; }
+</style>

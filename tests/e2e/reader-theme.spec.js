@@ -138,4 +138,113 @@ test.describe('图片皮肤 iframe 渲染回归', () => {
     expect(await readIframeStyle(page, 'html', 'colorScheme')).toBe('normal')
     expect(await readIframeStyle(page, 'body', 'backgroundColor')).toBe('rgb(26, 26, 26)')
   })
+
+  // 回归：夜灰/纯黑的 `.grey *`、`.dark *` 曾给评论数 span 刷上不透明底色，
+  // 绝对定位的 span 盖住气泡上部，段尾气泡只剩尾巴、看不到轮廓。
+  test('段尾评论气泡在各主题下都显示气泡轮廓', async ({ page }) => {
+    await gotoReader(page)
+    await waitForReaderRendered(page)
+    await page.evaluate(() => {
+      const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+      // 可能同时渲染了封面和下一章两个 iframe，取当前可见的那个；本页没有段落（如封面）时在末尾补一段文字再挂。
+      // 气泡不参与排版、垂直居中在末行文字上，直接挂 body 会贴着封面图，取不到纯背景色做对比。
+      const contents = r.rendition.getContents().find(c => {
+        const rect = c.document.defaultView.frameElement.getBoundingClientRect()
+        return rect.right > 0 && rect.left < window.innerWidth
+      })
+      const doc = contents.document
+      const p = [...doc.querySelectorAll('p')].find(p => {
+        const rect = p.getBoundingClientRect()
+        return p.textContent.trim() && rect.left >= 0 && rect.right <= doc.defaultView.innerWidth
+      })
+      let target = p
+      if (!target) {
+        target = doc.createElement('p')
+        target.textContent = '气泡'
+        doc.body.appendChild(target)
+      }
+      r.add_icon_into_paragraph(contents, target, { paragraph_cfi: 'test', count: 7 }, null)
+    })
+    // 读取气泡所在 iframe 的主题 class、气泡样式，以及气泡在主页面中的位置
+    const bubble = () => page.evaluate(() => {
+      for (const f of document.querySelectorAll('#reader iframe')) {
+        const doc = f.contentDocument
+        const icon = doc && doc.querySelector('.comment-icon')
+        if (!icon) continue
+        const r = icon.getBoundingClientRect()
+        const fr = f.getBoundingClientRect()
+        return {
+          themes: [...doc.body.classList],
+          image: getComputedStyle(icon).backgroundImage,
+          countBg: getComputedStyle(icon.querySelector('.comment-count')).backgroundColor,
+          clip: { x: fr.x + r.x, y: fr.y + r.y, width: r.width, height: r.height },
+        }
+      }
+      return null
+    })
+    for (const theme of ['white', 'grey', 'dark', 'xingye']) {
+      await page.evaluate(theme => {
+        const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+        r.update_settings({ ...r.settings, theme })
+      }, theme)
+      await expect.poll(() => bubble().then(b => b && b.themes)).toContain(theme)
+      const b = await bubble()
+      expect(b.image).toContain('data:image/svg+xml')
+      expect(b.countBg).toBe('rgba(0, 0, 0, 0)')
+      // 像素级：气泡顶部一条带（数字画不到的位置）必须有与背景明显不同的轮廓色
+      const png = (await page.screenshot({ clip: b.clip })).toString('base64')
+      const outline = await page.evaluate(async png => {
+        const img = new Image()
+        img.src = `data:image/png;base64,${png}`
+        await img.decode()
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0)
+        const data = ctx.getImageData(0, 0, img.width, img.height).data
+        const bg = data.slice(0, 3) // 左上角在气泡圆角之外，取作背景色
+        let count = 0
+        for (let y = 0; y < Math.ceil(img.height * 0.15); y++) {
+          for (let x = 0; x < img.width; x++) {
+            const i = (y * img.width + x) * 4
+            if (Math.max(...[0, 1, 2].map(c => Math.abs(data[i + c] - bg[c]))) > 60) count++
+          }
+        }
+        // 气泡下方的尖角朝左：底部一条带里，左半边的轮廓像素多于右半边
+        const tail = [0, 0]
+        for (let y = Math.floor(img.height * 0.85); y < img.height; y++) {
+          for (let x = 0; x < img.width; x++) {
+            const i = (y * img.width + x) * 4
+            if (Math.max(...[0, 1, 2].map(c => Math.abs(data[i + c] - bg[c]))) > 60) tail[x < img.width / 2 ? 0 : 1]++
+          }
+        }
+        return { count, tail }
+      }, png)
+      expect(outline.count, `${theme} 主题下气泡顶部轮廓不可见`).toBeGreaterThan(0)
+      expect(outline.tail[0], `${theme} 主题下气泡尖角应朝左`).toBeGreaterThan(outline.tail[1])
+    }
+  })
+})
+
+test('开启选中工具栏时正文关闭 iOS 系统文字菜单，关闭工具栏后恢复 @epub', async ({ page }) => {
+  await setupApiMock(page)
+  await gotoReader(page)
+  await waitForReaderRendered(page)
+  // Chromium 不认识 -webkit-touch-callout，样式表里留不下来，所以直接检查注入给正文的样式规则。
+  const callout = () => page.evaluate(() => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    let rules
+    const original = r.rendition.themes.default
+    r.rendition.themes.default = value => { rules = value; return original.call(r.rendition.themes, value) }
+    r.apply_custom_style()
+    r.rendition.themes.default = original
+    return rules['body, body *']['-webkit-touch-callout'] || null
+  })
+  expect(await callout()).toBe('none !important')
+  await page.evaluate(() => {
+    const r = document.querySelector('#app').__vue_app__._instance.subTree.component.proxy
+    r.update_settings({ ...r.settings, show_selection_toolbar: false })
+  })
+  expect(await callout()).toBe(null)
 })
