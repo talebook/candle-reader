@@ -8,6 +8,10 @@
 # - Ensure repository Actions permissions allow writing releases, or set a RELEASE_PAT secret (repo scope)
 #   and it will be used instead of the builtin GITHUB_TOKEN.
 # - The release asset uploaded is ./dist.zip (your build must produce dist/).
+# - The same dist/ is also published to npm as @talebook/candle-reader, versioned by the tag (v1.2.0 -> 1.2.0).
+#   Publishing uses npm Trusted Publishing (GitHub OIDC), so no NPM token secret is needed; the package's
+#   Trusted Publisher on npmjs.com must point at talebook/candle-reader + release.yml. A version that already
+#   exists on npm is skipped, so re-running for an old tag only refreshes the GitHub release asset.
 on:
   push:
     tags:
@@ -19,6 +23,7 @@ name: Build and release dist.zip (tag-only / manual latest-tag)
 permissions:
   contents: write
   packages: write
+  id-token: write # npm Trusted Publishing
 
 env:
   ASSET_NAME: dist.zip
@@ -37,7 +42,8 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
@@ -77,6 +83,22 @@ jobs:
           fi
           echo "Using latest tag: ${TAG}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -e
+          # Trusted Publishing needs npm >= 11.5.1
+          npm install -g npm@^11.5.1
+          VERSION="${TAG#v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          NAME=$(node -p "require('./package.json').name")
+          if npm view "${NAME}@${VERSION}" version >/dev/null 2>&1; then
+            echo "${NAME}@${VERSION} already on npm, skipping publish"
+            exit 0
+          fi
+          npm publish --provenance
 
       - name: Ensure Release exists (get upload_url or create release)
         id: ensure_release
