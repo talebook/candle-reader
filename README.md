@@ -7,6 +7,7 @@
 ```bash
 make dev    # 打开 http://localhost:5001/demo.html
 make dist   # 打包，并生成可直接部署的 dist/demo.html
+            # 合并进 main 后由 .github/workflows/pages.yml 发布到 https://talebook.github.io/candle-reader/
 ```
 
 演示页用《西游记》和一个纯内存版宿主（`demo/memory-host.js`，完整实现下面的回调契约），可以体验划线、评论、回复、赞踩、「我的」和游客登录引导；数据只在内存里，刷新即重置。

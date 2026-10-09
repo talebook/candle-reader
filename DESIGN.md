@@ -326,5 +326,5 @@ audiobook_callbacks: {
 ## 11. 测试与演示
 
 - e2e：Playwright，全部 mock，不依赖真实宿主。入口 `tests/e2e/fixtures/reader-harness.html`；加 `?host=1` 注入内存宿主（`&guest=1` 游客，`&extra=N` 追加 N 条评论），不加则走本机存储。提交前全量通过（见 `AGENTS.md`）。
-- 演示：`make dev` 后打开 `/demo.html`；`make dist` 生成可直接部署的 `dist/demo.html` 和介绍页 `dist/index.html`。演示页加 `?diag=1` 显示选中文字相关事件，用于真机排查。
+- 演示：`make dev` 后打开 `/demo.html`；`make dist` 生成可直接部署的 `dist/demo.html` 和介绍页 `dist/index.html`，合并进 main 后由 `.github/workflows/pages.yml` 发布到 GitHub Pages（仓库 Pages 的 Source 需设为 GitHub Actions）。皮肤图片按打包脚本自己的地址解析，部署在子路径下也能加载。演示页加 `?diag=1` 显示选中文字相关事件，用于真机排查。
 - 真机差异：iOS Safari 的选字、系统菜单、点击时序与桌面浏览器（包括桌面 Safari 的手机模拟）不同，涉及选区和触摸的改动必须在 iPhone 上实测。
