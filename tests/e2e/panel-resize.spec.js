@@ -30,6 +30,9 @@ test.describe('宽屏', () => {
       const y = box.y + box.height / 2
       await page.mouse.move(x, y)
       await page.mouse.down()
+      await page.mouse.move(x + (side === 'left' ? 50 : -50), y)
+      // 拖动中宽度立即跟上指针，不带过渡动画
+      expect(await sheetWidth(page)).toBe(width + 50)
       await page.mouse.move(x + (side === 'left' ? 100 : -100), y, { steps: 5 })
       await page.mouse.up()
       await expect.poll(() => sheetWidth(page)).toBe(width + 100)

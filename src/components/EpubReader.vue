@@ -2132,6 +2132,8 @@ html, body {
     overflow-y: auto;
     border-radius: 0;
     background: rgb(var(--v-theme-surface));
+    /* Vuetify 给面板内容加了 0.2s 的 transition: all，拖动分隔条时宽度会追着指针慢半拍；只保留滑入滑出的动画。 */
+    transition-property: transform, opacity;
   }
   .v-bottom-sheet.reader-side-right > .v-bottom-sheet__content.v-overlay__content { left: auto; right: 0; width: var(--candle-panel-annotations-width, 420px); }
   .v-bottom-sheet.reader-side-left > .v-bottom-sheet__content.v-overlay__content { left: 0; right: auto; width: var(--candle-panel-toc-width, 300px); }
