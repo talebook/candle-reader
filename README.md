@@ -26,6 +26,18 @@ make dist   # 打包，并生成可直接部署的 dist/demo.html
 
 演示页用《西游记》和一个纯内存版宿主（`demo/memory-host.js`，完整实现下面的回调契约），可以体验划线、评论、回复、赞踩、「我的」和游客登录引导；数据只在内存里，刷新即重置。
 
+## 发版与 npm 包
+
+打包产物以 npm 包 [`@talebook/candle-reader`](https://www.npmjs.com/package/@talebook/candle-reader) 发布，包内只有 `dist/`，宿主（talebook）锁定版本后把 `dist/` 拷到自己的静态目录使用。
+
+```bash
+git tag v26.10.09 && git push origin v26.10.09
+```
+
+版本号用发版日期 `vYY.MM.DD` 。推送 `v*` tag 后 `.github/workflows/release.yml` 会打包，把 `dist/` 以 tag 对应的版本号发布到 npm（semver 不允许前导零，`v26.10.09` 发布为 `26.10.9` ；同一天只能发一版），同时把 `dist.zip` 上传到 GitHub Release。发布走 npm Trusted Publishing（GitHub OIDC），仓库里不保存 npm token；包在 npmjs.com 的 Trusted Publisher 需指向本仓库的 `release.yml` 。`package.json` 里的 `version` 只作参考，以 tag 为准。
+
+本地联调时不必发版：`make dist install` 把产物直接拷进本地 talebook 的静态目录。
+
 ## 划线与评论接入
 
 划线、文字评论和整书评论是同一种记录，统称「评论」。阅读器负责全部界面：选区工具栏、评论抽屉、完整评论页、评论详情页、编辑框、赞踩与回复。**阅读器自身不请求任何评论或账号服务**，数据与登录态全部通过初始化时注入的 `annotation_callbacks` 交给宿主：

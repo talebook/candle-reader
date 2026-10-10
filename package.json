@@ -1,6 +1,21 @@
 {
-  "name": "teader",
-  "version": "0.0.0",
+  "name": "@talebook/candle-reader",
+  "version": "26.10.9",
+  "description": "秉烛夜读：可嵌入 talebook 的 EPUB 阅读器（打包产物）",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/talebook/candle-reader.git"
+  },
+  "homepage": "https://talebook.github.io/candle-reader/",
+  "main": "dist/candle-reader.umd.js",
+  "module": "dist/candle-reader.es.js",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build && rm -rf dist/demo dist/talebook-template.html",
@@ -9,16 +24,11 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
-  "dependencies": {
-    "@mdi/font": "7.4.47",
-    "core-js": "^3.37.1",
-    "roboto-fontface": "*",
-    "vue": "^3.4.31",
-    "vuetify": "^3.6.11"
-  },
   "devDependencies": {
+    "@mdi/font": "7.4.47",
     "@playwright/test": "^1.60.0",
     "@vitejs/plugin-vue": "^5.0.5",
+    "core-js": "^3.37.1",
     "eslint": "^8.57.0",
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-import": "^2.29.1",
@@ -26,12 +36,15 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^6.4.0",
     "eslint-plugin-vue": "^9.27.0",
+    "roboto-fontface": "*",
     "sass": "1.77.6",
     "unplugin-fonts": "^1.1.1",
     "unplugin-vue-components": "^0.27.2",
     "unplugin-vue-router": "^0.10.0",
     "vite": "^5.3.3",
     "vite-plugin-vuetify": "^2.0.3",
-    "vue-router": "^4.4.0"
+    "vue": "^3.4.31",
+    "vue-router": "^4.4.0",
+    "vuetify": "^3.6.11"
   }
 }

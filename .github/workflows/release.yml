@@ -8,6 +8,11 @@
 # - Ensure repository Actions permissions allow writing releases, or set a RELEASE_PAT secret (repo scope)
 #   and it will be used instead of the builtin GITHUB_TOKEN.
 # - The release asset uploaded is ./dist.zip (your build must produce dist/).
+# - The same dist/ is also published to npm as @talebook/candle-reader, versioned by the tag. Tags are date
+#   versions vYY.MM.DD (e.g. v26.10.09); semver forbids leading zeros, so the npm version drops them (26.10.9).
+#   Publishing uses npm Trusted Publishing (GitHub OIDC), so no NPM token secret is needed; the package's
+#   Trusted Publisher on npmjs.com must point at talebook/candle-reader + release.yml. A version that already
+#   exists on npm is skipped, so re-running for an old tag only refreshes the GitHub release asset.
 on:
   push:
     tags:
@@ -19,6 +24,7 @@ name: Build and release dist.zip (tag-only / manual latest-tag)
 permissions:
   contents: write
   packages: write
+  id-token: write # npm Trusted Publishing
 
 env:
   ASSET_NAME: dist.zip
@@ -33,27 +39,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Archive dist
-        run: |
-          if [ -d dist ]; then
-            rm -f ${ASSET_NAME}
-            zip -r ${ASSET_NAME} dist
-          else
-            echo "dist directory not found"
-            exit 1
-          fi
 
       - name: Determine tag to use
         id: tag
@@ -77,6 +62,67 @@ jobs:
           fi
           echo "Using latest tag: ${TAG}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the tag being released
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        # A manual run picks the latest tag; build that tag, not the branch the run was started from,
+        # so dist.zip and the npm package match the version they are published as.
+        run: git checkout --detach "refs/tags/${TAG}"
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Archive dist
+        run: |
+          if [ -d dist ]; then
+            rm -f ${ASSET_NAME}
+            zip -r ${ASSET_NAME} dist
+          else
+            echo "dist directory not found"
+            exit 1
+          fi
+
+      - name: Publish to npm
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -e
+          # Trusted Publishing needs npm >= 11.5.1
+          npm install -g npm@^11.5.1
+          # vYY.MM.DD -> YY.M.D (semver forbids leading zeros)
+          if ! [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Tag '$TAG' is not vYY.MM.DD, cannot map it to an npm version"
+            exit 1
+          fi
+          VERSION="$((10#${BASH_REMATCH[1]})).$((10#${BASH_REMATCH[2]})).$((10#${BASH_REMATCH[3]}))"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          NAME=$(node -p "require('./package.json').name")
+          if [ "$NAME" != "@talebook/candle-reader" ]; then
+            echo "Tag ${TAG} predates the npm package (name: ${NAME}), skipping publish"
+            exit 0
+          fi
+          # Publish only on a confirmed 404; any other lookup failure must not be read as "missing"
+          if OUT=$(npm view "${NAME}@${VERSION}" version 2>&1); then
+            if [ -n "$OUT" ]; then
+              echo "${NAME}@${VERSION} already on npm, skipping publish"
+              exit 0
+            fi
+          elif ! echo "$OUT" | grep -q E404; then
+            echo "npm view failed:"
+            echo "$OUT"
+            exit 1
+          fi
+          npm publish --provenance
 
       - name: Ensure Release exists (get upload_url or create release)
         id: ensure_release
